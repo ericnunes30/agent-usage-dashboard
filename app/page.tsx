@@ -218,17 +218,23 @@ export default function Page() {
       {/* Filtros */}
       <section className="bg-surface border border-border rounded-lg p-4 mb-6">
         <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-          <input
-            type="text"
-            placeholder="Buscar título, descrição..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="bg-bg border border-border rounded px-3 py-2 text-sm text-white placeholder-zinc-600 col-span-2"
-          />
-          <Select label="Cliente" value={clientFilter} onChange={setClientFilter} options={["all", ...clients]} />
-          <Select label="Workspace" value={workspaceFilter} onChange={setWorkspaceFilter} options={["all", ...workspaces.slice(0, 50)]} />
-          <Select label="Modelo" value={modelFilter} onChange={setModelFilter} options={["all", ...models]} />
+          <div className="col-span-2">
+            <label htmlFor="search-input" className="block text-xs text-zinc-500 mb-1">Buscar</label>
+            <input
+              id="search-input"
+              name="search"
+              type="text"
+              placeholder="Título, descrição, workspace..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full bg-bg border border-border rounded px-3 py-2 text-sm text-white placeholder-zinc-600"
+            />
+          </div>
+          <Select id="client-filter" label="Cliente" value={clientFilter} onChange={setClientFilter} options={["all", ...clients]} />
+          <Select id="workspace-filter" label="Workspace" value={workspaceFilter} onChange={setWorkspaceFilter} options={["all", ...workspaces.slice(0, 50)]} />
+          <Select id="model-filter" label="Modelo" value={modelFilter} onChange={setModelFilter} options={["all", ...models]} />
           <Select
+            id="period-filter"
             label="Período"
             value={String(daysBack)}
             onChange={(v) => setDaysBack(Number(v))}
@@ -259,7 +265,7 @@ export default function Page() {
       {/* Gráficos */}
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
         <ChartCard title="Custo por dia (USD)">
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height={280}>
             <LineChart data={byDay}>
               <CartesianGrid stroke="#262626" />
               <XAxis dataKey="date" stroke="#71717a" fontSize={11} />
@@ -271,7 +277,7 @@ export default function Page() {
         </ChartCard>
 
         <ChartCard title="Custo por cliente">
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height={280}>
             <PieChart>
               <Pie data={byClient} dataKey="cost" nameKey="name" outerRadius={90} label={(d) => d.name}>
                 {byClient.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
@@ -282,7 +288,7 @@ export default function Page() {
         </ChartCard>
 
         <ChartCard title="Top 10 modelos por custo">
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height={320}>
             <BarChart data={byModel} layout="vertical">
               <CartesianGrid stroke="#262626" />
               <XAxis type="number" stroke="#71717a" fontSize={11} />
@@ -294,7 +300,7 @@ export default function Page() {
         </ChartCard>
 
         <ChartCard title="Sessões por dia">
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height={320}>
             <BarChart data={byDay}>
               <CartesianGrid stroke="#262626" />
               <XAxis dataKey="date" stroke="#71717a" fontSize={11} />
@@ -370,11 +376,9 @@ function Kpi({ label, value, accent }: { label: string; value: string; accent?: 
 
 function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="bg-surface border border-border rounded-lg p-4 flex flex-col">
+    <div className="bg-surface border border-border rounded-lg p-4">
       <h3 className="text-sm font-semibold text-zinc-300 mb-3">{title}</h3>
-      <div className="w-full" style={{ height: 280 }}>
-        {children}
-      </div>
+      {children}
     </div>
   );
 }
@@ -398,17 +402,20 @@ function ClientBadge({ client }: { client: string }) {
 }
 
 function Select({
-  label, value, onChange, options,
+  label, value, onChange, options, id,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   options: (string | { value: string; label: string })[];
+  id: string;
 }) {
   return (
     <div>
-      <label className="block text-xs text-zinc-500 mb-1">{label}</label>
+      <label htmlFor={id} className="block text-xs text-zinc-500 mb-1">{label}</label>
       <select
+        id={id}
+        name={id}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className="w-full bg-bg border border-border rounded px-2 py-2 text-sm text-white"

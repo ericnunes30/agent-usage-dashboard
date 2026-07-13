@@ -4,7 +4,7 @@
 
 ![Status](https://img.shields.io/badge/status-MVP-yellow)
 ![License](https://img.shields.io/badge/license-MIT-blue)
-![Stack](https://img.shields.io/badge/stack-Next.js_15_+_React_19_+_Recharts-black)
+![Stack](https://img.shields.io/badge/stack-Next.js_14_+_React_18_+_Recharts-black)
 
 ## What is this?
 
@@ -22,8 +22,33 @@ A self-hosted web dashboard that reads your local AI agent session logs and show
 - **Session-level granularity** — every individual conversation is a first-class data point
 - **Dark mode** by default
 - **Responsive layout** (works on narrow terminals / mobile)
-- **Fast** — 1.4MB JSON of 1.885 sessions loads in <100ms
+- **Fast** — 1.4MB JSON of 1.887 sessions loads in <100ms
 - **Local-first** — your data never leaves your machine
+
+## 💰 About the costs shown here
+
+**You don't need to register or configure anything** — the costs are computed automatically by [`tokscale`](https://github.com/junhoyelo/tokscale) using the [LiteLLM pricing database](https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json) (2,963 models catalogued). The pipeline:
+
+```
+Your agent log → model name (e.g. "minimax-m3:cloud")
+       ↓
+Tokscale: "lookup in LiteLLM pricing"
+       ↓
+Match: fireworks_ai/minimax-m3, openrouter/..., bedrock/..., etc.
+       ↓
+cost = input_tokens × input_price + output_tokens × output_price + cache_read × cache_price
+```
+
+**This means the cost numbers are estimates**, not invoices. They are useful for trends and comparisons, but the actual amount you pay depends on the provider you use:
+
+| Situation | Accuracy of cost shown |
+|---|---|
+| Official OpenAI / Anthropic / Google direct | ✅ Very accurate (official pricing) |
+| OpenRouter / LiteLLM proxy | ⚠️ Approximate (depends on routing) |
+| Self-hosted or aggregator with custom pricing | ❌ May be wrong (fallback to closest match) |
+| Models not in LiteLLM | ❌ Often shows $0.00 (no match found) |
+
+> 💡 **Bottom line:** the dashboard is great for answering *"which model am I using the most?"* and *"where are tokens going?"*. For the real bill, check your provider's dashboard. The cache_read column is especially noisy across non-Anthropic providers.
 
 ## 🏗️ Architecture
 
@@ -43,18 +68,19 @@ Local files (read-only)              Data pipeline              Frontend
                                          │
                                          ▼
                               ┌────────────────────┐
-                              │  React + Recharts   │  ← 380 lines, all custom UI
+                              │  React + Recharts   │  ← 540 lines, all custom UI
                               │  / (dashboard)      │
                               └────────────────────┘
 ```
 
 ## 📝 About the code
 
-This project is **100% custom code** — 437 lines written from scratch across 4 files:
+This project is **100% custom code** — 540 lines written from scratch across 5 files:
 
 | File | Lines | Purpose |
 |------|------:|---------|
-| `app/page.tsx` | 380 | UI: filters, KPIs, 4 charts, table |
+| `app/page.tsx` | 431 | UI: filters, KPIs, 4 charts, table |
+| `app/api/refresh/route.ts` | 52 | Re-runs tokscale via child_process |
 | `app/globals.css` | 23 | Dark theme + scrollbar |
 | `app/layout.tsx` | 15 | HTML root |
 | `app/api/sessions/route.ts` | 19 | JSON file reader |
@@ -105,7 +131,7 @@ Built for developers who use multiple AI coding agents daily and want to:
 
 ## 🛣️ Roadmap
 
-- [ ] "Refresh data" button (re-runs tokscale via API)
+- [x] "Refresh data" button (re-runs tokscale via API) ✨
 - [ ] File watcher (auto-detect new sessions)
 - [ ] Persistent filters (localStorage)
 - [ ] Session detail page (read the actual JSONL messages)
@@ -114,11 +140,13 @@ Built for developers who use multiple AI coding agents daily and want to:
 
 ## 🧪 Tech stack
 
-- **Framework:** Next.js 15 (App Router)
-- **UI:** React 19, Tailwind CSS 3
-- **Charts:** Recharts
-- **Data source:** [`tokscale`](https://github.com/junhoyeo/tokscale) (Rust CLI)
+- **Framework:** Next.js 14 (App Router)
+- **UI:** React 18, Tailwind CSS 3
+- **Charts:** Recharts 2.13
+- **Data source:** [`tokscale`](https://github.com/junhoyeo/tokscale) (Rust CLI, powered by [LiteLLM pricing](https://github.com/BerriAI/litellm))
 - **Package manager:** Bun (npm/yarn/pnpm also work)
+
+> ⚠️ **Note:** Recharts 2.x is not compatible with React 19, so this project pins to React 18. If you want React 19, upgrade to Recharts 3.x.
 
 ## 📄 License
 
