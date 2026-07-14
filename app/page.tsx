@@ -31,14 +31,44 @@ type Session = {
 
 const COLORS = ["#10b981", "#3b82f6", "#a855f7", "#f59e0b", "#ef4444", "#06b6d4", "#ec4899", "#84cc16"];
 
+// Taxas hardcoded como fallback (caso a API do BCB falhe)
+const FALLBACK_RATES: Record<string, number> = {
+  USD: 1,
+  BRL: 5.43,
+  EUR: 0.92,
+  GBP: 0.79,
+};
+
+const CURRENCY_OPTIONS = [
+  { value: "BRL", label: "BRL (R$)" },
+  { value: "USD", label: "USD ($)" },
+  { value: "EUR", label: "EUR (€)" },
+  { value: "GBP", label: "GBP (£)" },
+];
+
+// Opção sentinela para "sem filtro" — exibida como "Todos" no select
+const ALL_OPT = { value: "all", label: "Todos" };
+const withAll = (items: string[]) => [ALL_OPT, ...items.map((v) => ({ value: v, label: v }))];
+
 function fmt(n: number): string {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(2) + "M";
   if (n >= 1_000) return (n / 1_000).toFixed(1) + "k";
   return n.toString();
 }
 
-function fmtUSD(n: number): string {
-  return "$" + n.toFixed(2);
+function fmtMoney(n: number, currency: string, rate: number): string {
+  // Converte USD → moeda destino e formata com Intl nativo
+  const converted = n * rate;
+  try {
+    return new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency,
+      maximumFractionDigits: 2,
+    }).format(converted);
+  } catch {
+    // Fallback se a moeda for inválida
+    return `${currency} ${converted.toFixed(2)}`;
+  }
 }
 
 function fmtDate(ts: number): string {
@@ -66,6 +96,8 @@ export default function Page() {
         const fresh = await r2.json();
         setData(fresh);
         setLastRefresh(Date.now());
+        // Re-busca unmatched (a lista pode ter mudado)
+        fetchUnmatched();
       } else {
         alert("Erro ao atualizar: " + result.error);
       }
@@ -75,6 +107,32 @@ export default function Page() {
       setRefreshing(false);
     }
   }
+
+  // Unmatched models (detectados pelo /api/refresh, editados pelo usuário)
+  type Unmatched = {
+    model: string;
+    sessions: number;
+    totalInput: number;
+    totalOutput: number;
+    totalTokens: number;
+    exampleSessionTitle: string;
+  };
+  const [unmatched, setUnmatched] = useState<Unmatched[]>([]);
+  const [showPricingModal, setShowPricingModal] = useState(false);
+
+  async function fetchUnmatched() {
+    try {
+      const r = await fetch("/api/unmatched");
+      const data = await r.json();
+      setUnmatched(Array.isArray(data) ? data : []);
+    } catch {
+      setUnmatched([]);
+    }
+  }
+
+  useEffect(() => {
+    fetchUnmatched();
+  }, []);
 
   // Filtros
   const [clientFilter, setClientFilter] = useState<string>("all");
@@ -89,6 +147,31 @@ export default function Page() {
       .then((d) => { setData(d); setLoading(false); })
       .catch(() => setLoading(false));
   }, []);
+
+  // Busca cotação PTAX do Banco Central (USD → BRL/EUR/GBP)
+  useEffect(() => {
+    // Busca os últimos 5 dias úteis (pega o mais recente)
+    const today = new Date();
+    const start = new Date(today);
+    start.setDate(start.getDate() - 7);
+    const fmtBCB = (d: Date) =>
+      `${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}-${d.getFullYear()}`;
+    const url = `https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoDolarPeriodo(dataInicial=@dataInicial,dataFinalCotacao=@dataFinalCotacao)?@dataInicial='${fmtBCB(start)}'&@dataFinalCotacao='${fmtBCB(today)}'&$top=1&$orderby=dataHoraCotacao%20desc&$format=json&$select=cotacaoCompra`;
+    fetch(url)
+      .then((r) => r.json())
+      .then((d) => {
+        const usdBrl = d?.value?.[0]?.cotacaoCompra;
+        if (typeof usdBrl === "number" && usdBrl > 0) {
+          setExchangeRates((prev) => ({ ...prev, BRL: usdBrl }));
+        }
+      })
+      .catch(() => {/* mantém fallback */});
+  }, []);
+
+  // Moeda selecionada + taxas de câmbio (USD = base)
+  const [currency, setCurrency] = useState<string>("BRL");
+  const [exchangeRates, setExchangeRates] = useState<Record<string, number>>(FALLBACK_RATES);
+  const currentRate = exchangeRates[currency] ?? FALLBACK_RATES[currency] ?? 1;
 
   // Valores únicos para os selects
   const clients = useMemo(() => Array.from(new Set(data.map((s) => s.client))).sort(), [data]);
@@ -187,7 +270,7 @@ export default function Page() {
 
   return (
     <main className="min-h-screen p-6 max-w-[1600px] mx-auto">
-      <header className="mb-6 flex items-start justify-between">
+      <header className="mb-6 flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-3xl font-bold text-white mb-1">Usage Dashboard</h1>
           <p className="text-zinc-500 text-sm">
@@ -199,40 +282,58 @@ export default function Page() {
             )}
           </p>
         </div>
-        <button
-          onClick={refresh}
-          disabled={refreshing}
-          className="bg-emerald-600 hover:bg-emerald-500 disabled:bg-zinc-700 disabled:text-zinc-500 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition"
-        >
-          {refreshing ? (
-            <>
-              <span className="inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              Atualizando...
-            </>
-          ) : (
-            <>↻ Atualizar dados</>
+        <div className="flex items-center gap-2">
+          {unmatched.length > 0 && (
+            <button
+              onClick={() => setShowPricingModal(true)}
+              className="bg-amber-600 hover:bg-amber-500 text-white px-3 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition"
+              title="Modelos com uso real mas custo = $0 (provavelmente sem preço no LiteLLM)"
+            >
+              ⚠ {unmatched.length} sem preço
+            </button>
           )}
-        </button>
+          <Select
+            id="currency-select"
+            label="Moeda"
+            value={currency}
+            onChange={setCurrency}
+            options={CURRENCY_OPTIONS}
+          />
+          <button
+            onClick={refresh}
+            disabled={refreshing}
+            className="bg-emerald-600 hover:bg-emerald-500 disabled:bg-zinc-700 disabled:text-zinc-500 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition"
+          >
+            {refreshing ? (
+              <>
+                <span className="inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Atualizando...
+              </>
+            ) : (
+              <>↻ Atualizar dados</>
+            )}
+          </button>
+        </div>
       </header>
 
       {/* Filtros */}
       <section className="bg-surface border border-border rounded-lg p-4 mb-6">
         <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
           <div className="col-span-2">
-            <label htmlFor="search-input" className="block text-xs text-zinc-500 mb-1">Buscar</label>
+            <label htmlFor="search-input" className="block text-xs text-zinc-500 mb-1">🔎 Buscar</label>
             <input
               id="search-input"
               name="search"
               type="text"
-              placeholder="Título, descrição, workspace..."
+              placeholder="Ex: refatorar, mcp, agent-usage..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full bg-bg border border-border rounded px-3 py-2 text-sm text-white placeholder-zinc-600"
             />
           </div>
-          <Select id="client-filter" label="Cliente" value={clientFilter} onChange={setClientFilter} options={["all", ...clients]} />
-          <Select id="workspace-filter" label="Workspace" value={workspaceFilter} onChange={setWorkspaceFilter} options={["all", ...workspaces.slice(0, 50)]} />
-          <Select id="model-filter" label="Modelo" value={modelFilter} onChange={setModelFilter} options={["all", ...models]} />
+          <Select id="client-filter" label="Agente" value={clientFilter} onChange={setClientFilter} options={withAll(clients)} />
+          <Select id="workspace-filter" label="Workspace" value={workspaceFilter} onChange={setWorkspaceFilter} options={withAll(workspaces.slice(0, 50))} />
+          <Select id="model-filter" label="Modelo" value={modelFilter} onChange={setModelFilter} options={withAll(models)} />
           <Select
             id="period-filter"
             label="Período"
@@ -256,7 +357,7 @@ export default function Page() {
       {/* KPIs */}
       <section className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
         <Kpi label="Sessões" value={kpis.count.toLocaleString()} />
-        <Kpi label="Custo Total" value={fmtUSD(kpis.totalCost)} accent />
+        <Kpi label="Custo Total" value={fmtMoney(kpis.totalCost, currency, currentRate)} accent />
         <Kpi label="Input Tokens" value={fmt(kpis.totalIn)} />
         <Kpi label="Output Tokens" value={fmt(kpis.totalOut)} />
         <Kpi label="Cache Read" value={fmt(kpis.totalCache)} />
@@ -264,36 +365,36 @@ export default function Page() {
 
       {/* Gráficos */}
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-        <ChartCard title="Custo por dia (USD)">
+        <ChartCard title={`Custo por dia (${currency})`}>
           <ResponsiveContainer width="100%" height={280}>
             <LineChart data={byDay}>
               <CartesianGrid stroke="#262626" />
               <XAxis dataKey="date" stroke="#71717a" fontSize={11} />
               <YAxis stroke="#71717a" fontSize={11} />
-              <Tooltip contentStyle={{ background: "#141414", border: "1px solid #262626" }} />
+              <Tooltip contentStyle={{ background: "#141414", border: "1px solid #262626" }} formatter={(v: any) => fmtMoney(Number(v), currency, currentRate)} />
               <Line type="monotone" dataKey="cost" stroke="#10b981" dot={false} />
             </LineChart>
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard title="Custo por cliente">
+        <ChartCard title={`Custo por cliente (${currency})`}>
           <ResponsiveContainer width="100%" height={280}>
             <PieChart>
               <Pie data={byClient} dataKey="cost" nameKey="name" outerRadius={90} label={(d) => d.name}>
                 {byClient.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
               </Pie>
-              <Tooltip contentStyle={{ background: "#141414", border: "1px solid #262626" }} formatter={(v: any) => fmtUSD(Number(v))} />
+              <Tooltip contentStyle={{ background: "#141414", border: "1px solid #262626" }} formatter={(v: any) => fmtMoney(Number(v), currency, currentRate)} />
             </PieChart>
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard title="Top 10 modelos por custo">
+        <ChartCard title={`Top 10 modelos por custo (${currency})`}>
           <ResponsiveContainer width="100%" height={320}>
             <BarChart data={byModel} layout="vertical">
               <CartesianGrid stroke="#262626" />
               <XAxis type="number" stroke="#71717a" fontSize={11} />
               <YAxis dataKey="name" type="category" stroke="#71717a" fontSize={10} width={140} />
-              <Tooltip contentStyle={{ background: "#141414", border: "1px solid #262626" }} formatter={(v: any) => fmtUSD(Number(v))} />
+              <Tooltip contentStyle={{ background: "#141414", border: "1px solid #262626" }} formatter={(v: any) => fmtMoney(Number(v), currency, currentRate)} />
               <Bar dataKey="cost" fill="#3b82f6" />
             </BarChart>
           </ResponsiveContainer>
@@ -349,7 +450,7 @@ export default function Page() {
                     <td className="px-4 py-3 text-right text-zinc-300">{s.message_count}</td>
                     <td className="px-4 py-3 text-right text-zinc-300">{fmt(s.total_input_tokens)}</td>
                     <td className="px-4 py-3 text-right text-zinc-300">{fmt(s.total_output_tokens)}</td>
-                    <td className="px-4 py-3 text-right text-emerald-400 font-mono">{fmtUSD(s.total_cost)}</td>
+                    <td className="px-4 py-3 text-right text-emerald-400 font-mono">{fmtMoney(s.total_cost, currency, currentRate)}</td>
                   </tr>
                 ))}
             </tbody>
@@ -361,6 +462,20 @@ export default function Page() {
           </div>
         )}
       </section>
+
+      {showPricingModal && (
+        <PricingModal
+          unmatched={unmatched}
+          onClose={() => setShowPricingModal(false)}
+          onSaved={() => {
+            setShowPricingModal(false);
+            // Recarrega sessions pra aplicar o novo override
+            fetch("/api/sessions")
+              .then((r) => r.json())
+              .then((d) => { setData(d); fetchUnmatched(); });
+          }}
+        />
+      )}
     </main>
   );
 }
@@ -426,6 +541,189 @@ function Select({
           return <option key={v} value={v}>{l}</option>;
         })}
       </select>
+    </div>
+  );
+}
+
+type Unmatched = {
+  model: string;
+  sessions: number;
+  totalInput: number;
+  totalOutput: number;
+  totalTokens: number;
+  exampleSessionTitle: string;
+};
+
+function PricingModal({
+  unmatched,
+  onClose,
+  onSaved,
+}: {
+  unmatched: Unmatched[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  // Estado: modelo → { input, output }
+  const [prices, setPrices] = useState<Record<string, { input: string; output: string }>>(() => {
+    const init: Record<string, { input: string; output: string }> = {};
+    for (const u of unmatched) {
+      init[u.model] = { input: "0", output: "0" };
+    }
+    return init;
+  });
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  function setPrice(model: string, field: "input" | "output", value: string) {
+    setPrices((prev) => ({
+      ...prev,
+      [model]: { ...(prev[model] ?? { input: "0", output: "0" }), [field]: value },
+    }));
+  }
+
+  async function save() {
+    setSaving(true);
+    setErr(null);
+    try {
+      const overrides = Object.entries(prices)
+        .map(([model, p]) => ({
+          model,
+          inputPerMillion: Number(p.input),
+          outputPerMillion: Number(p.output),
+        }))
+        .filter((o) => !isNaN(o.inputPerMillion) && !isNaN(o.outputPerMillion));
+
+      const r = await fetch("/api/unmatched", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ overrides }),
+      });
+      const result = await r.json();
+      if (!r.ok || !result.ok) throw new Error(result.error ?? "Erro desconhecido");
+      onSaved();
+    } catch (e: any) {
+      setErr(e.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-surface border border-border rounded-lg w-full max-w-3xl max-h-[85vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="p-4 border-b border-border flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-white">
+              Modelos sem preço ({unmatched.length})
+            </h2>
+            <p className="text-xs text-zinc-500 mt-0.5">
+              Defina o preço em USD por <strong>1 milhão</strong> de tokens. Use 0 para modelos locais/free.
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-zinc-500 hover:text-white text-xl px-2"
+            aria-label="Fechar"
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4">
+          {unmatched.length === 0 ? (
+            <div className="text-zinc-500 text-sm text-center py-8">
+              Nenhum modelo sem preço detectado. 🎉
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {unmatched.map((u) => (
+                <div
+                  key={u.model}
+                  className="bg-bg border border-border rounded p-3 flex items-center gap-3"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="font-mono text-sm text-white truncate" title={u.model}>
+                      {u.model}
+                    </div>
+                    <div className="text-xs text-zinc-500 mt-0.5">
+                      {u.sessions} sessão(ões) · {fmt(u.totalInput)} in · {fmt(u.totalOutput)} out
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <div>
+                      <label
+                        htmlFor={`in-${u.model}`}
+                        className="block text-[10px] text-zinc-500 mb-0.5"
+                      >
+                        Input $/M
+                      </label>
+                      <input
+                        id={`in-${u.model}`}
+                        type="number"
+                        step="0.0001"
+                        min="0"
+                        value={prices[u.model]?.input ?? "0"}
+                        onChange={(e) => setPrice(u.model, "input", e.target.value)}
+                        className="w-24 bg-surface border border-border rounded px-2 py-1 text-sm text-white"
+                      />
+                    </div>
+                    <div>
+                      <label
+                        htmlFor={`out-${u.model}`}
+                        className="block text-[10px] text-zinc-500 mb-0.5"
+                      >
+                        Output $/M
+                      </label>
+                      <input
+                        id={`out-${u.model}`}
+                        type="number"
+                        step="0.0001"
+                        min="0"
+                        value={prices[u.model]?.output ?? "0"}
+                        onChange={(e) => setPrice(u.model, "output", e.target.value)}
+                        className="w-24 bg-surface border border-border rounded px-2 py-1 text-sm text-white"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {err && (
+          <div className="px-4 py-2 bg-red-900/30 border-t border-red-900/50 text-red-300 text-sm">
+            {err}
+          </div>
+        )}
+
+        <div className="p-4 border-t border-border flex items-center justify-between">
+          <span className="text-xs text-zinc-500">
+            Salvo em <code className="text-zinc-400">data/custom-pricing.json</code>
+          </span>
+          <div className="flex gap-2">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 text-sm text-zinc-400 hover:text-white"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={save}
+              disabled={saving || unmatched.length === 0}
+              className="bg-emerald-600 hover:bg-emerald-500 disabled:bg-zinc-700 disabled:text-zinc-500 text-white px-4 py-2 rounded text-sm font-medium"
+            >
+              {saving ? "Salvando..." : "Salvar"}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

@@ -128,10 +128,14 @@ Built for developers who use multiple AI coding agents daily and want to:
 - **5-minute browser cache** — fast refresh may show stale data
 - **Filters reset on page reload** — no localStorage persistence yet
 - **No auth** — local-only, do not expose publicly
+- **Models without LiteLLM pricing** — when tokscale returns cost=$0 for a model with real usage, the dashboard flags it in a "⚠ N sem preço" banner. Click the banner to assign a custom price (or $0 for local models) — saved to `data/custom-pricing.json` and applied on the fly.
 
 ## 🛣️ Roadmap
 
 - [x] "Refresh data" button (re-runs tokscale via API) ✨
+- [x] Multi-currency support (BRL default via BCB PTAX, USD/EUR/GBP fallback) ✨
+- [x] Custom pricing for unmatched models ✨
+- [x] Auto-detect local (ollama, lm-studio, vllm) providers from pi logs and zero their cost ✨
 - [ ] File watcher (auto-detect new sessions)
 - [ ] Persistent filters (localStorage)
 - [ ] Session detail page (read the actual JSONL messages)
