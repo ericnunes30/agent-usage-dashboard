@@ -5,26 +5,88 @@ import { join } from "path";
 const DATA_PATH = join(process.cwd(), "data", "sessions.json");
 const CUSTOM_PRICING_PATH = join(process.cwd(), "data", "custom-pricing.json");
 const UNMATCHED_PATH = join(process.cwd(), "data", "unmatched-models.json");
+const LITELLM_PATH = join(process.cwd(), "data", "litellm-prices.json");
+
+/**
+ * Carrega o catálogo LiteLLM (mesma fonte do tokscale).
+ * Retorna mapa: id → { inputPerMillion, outputPerMillion }.
+ */
+async function loadLiteLLM(): Promise<Record<string, { inputPerMillion: number; outputPerMillion: number }>> {
+  try {
+    const raw = JSON.parse(await readFile(LITELLM_PATH, "utf-8")) as Record<string, any>;
+    const out: Record<string, { inputPerMillion: number; outputPerMillion: number }> = {};
+    for (const [id, v] of Object.entries(raw)) {
+      if (!v || typeof v !== "object") continue;
+      const vin = v.input_cost_per_token;
+      const vout = v.output_cost_per_token;
+      if (typeof vin !== "number" || typeof vout !== "number") continue;
+      if (vin < 0 || vout < 0) continue;
+      if (v.mode && v.mode !== "chat" && v.mode !== "responses") continue;
+      out[id.toLowerCase()] = {
+        inputPerMillion: Number((vin * 1_000_000).toFixed(6)),
+        outputPerMillion: Number((vout * 1_000_000).toFixed(6)),
+      };
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Tenta achar o preço LiteLLM de um modelo. Estratégia:
+ * 1. Match exato (lowercase)
+ * 2. Removendo sufixo ":cloud", "-cloud", etc
+ * 3. Match com prefixo de provider (ex: "openai/gpt-5.2")
+ */
+function findLiteLLMPrice(
+  model: string,
+  catalog: Record<string, { inputPerMillion: number; outputPerMillion: number }>
+): { inputPerMillion: number; outputPerMillion: number } | null {
+  const norm = (s: string) => s.toLowerCase().trim();
+  const m = norm(model);
+
+  // 1. Exato
+  if (catalog[m]) return catalog[m];
+
+  // 2. Remover sufixos comuns (":cloud", "-cloud", "_cloud", ":free", "-free")
+  const stripped = m.replace(/[:\-_](cloud|free)$/, "");
+  if (stripped !== m && catalog[stripped]) return catalog[stripped];
+
+  // 3. Match com "provider/" — tenta achar com prefixo
+  // Ex: "gpt-5.2" → "openai/gpt-5.2"
+  // Procura qualquer chave que termine com "/<model>" ou "<model>"
+  const exactSuffixes = [m, stripped].filter((s, i, arr) => arr.indexOf(s) === i);
+  for (const target of exactSuffixes) {
+    for (const key of Object.keys(catalog)) {
+      if (key === target) return catalog[key];
+      if (key.endsWith("/" + target)) return catalog[key];
+    }
+  }
+
+  return null;
+}
 
 /**
  * Agrega estatísticas por modelo a partir de sessions.json.
- * Retorna: nome, # sessões, total de tokens in/out, custo total, e status.
+ * Retorna: nome, # sessões, total de tokens in/out, custo total, status, e preços.
  *
  * Status:
- * - "custom": tem override em custom-pricing.json
- * - "unmatched": está em unmatched-models.json (sem preço no LiteLLM)
- * - "priced": tem preço no tokscale/LiteLLM (custo > 0 e não-custom)
+ * - "custom":    tem override com preço real (input>0 ou output>0) em custom-pricing.json
+ * - "unmatched": está em unmatched-models.json (LiteLLM não tem) E sem custom com valor
+ * - "priced":    LiteLLM tem preço (tokscale calcula)
  *
- * Importante: o cálculo de custo aqui NÃO aplica custom pricing — queremos
- * o custo "bruto" do tokscale pra mostrar o impacto real. O custom-pricing
- * é aplicado em /api/sessions pra recalcular o total_cost.
+ * Preços:
+ * - customPrice:   override do usuário (se houver)
+ * - litellmPrice:  preço que o tokscale aplicou (se achou no LiteLLM)
  */
 export async function GET() {
   try {
-    const [sessionsText, customText, unmatchedText] = await Promise.all([
+    const [sessionsText, customText, unmatchedText, litellmCatalog] = await Promise.all([
       readFile(DATA_PATH, "utf-8"),
       readFile(CUSTOM_PRICING_PATH, "utf-8").catch(() => "{}"),
       readFile(UNMATCHED_PATH, "utf-8").catch(() => "[]"),
+      loadLiteLLM(),
     ]);
 
     const sessions = JSON.parse(sessionsText) as Array<any>;
@@ -32,7 +94,9 @@ export async function GET() {
     const unmatched: Array<{ model: string }> = JSON.parse(unmatchedText);
 
     const unmatchedSet = new Set(unmatched.map((u) => u.model));
-    const customKeys = new Set(Object.keys(customPricing));
+
+    // Cache de preços LiteLLM por nome (evita refazer a busca pra modelos repetidos)
+    const litellmCache = new Map<string, { inputPerMillion: number; outputPerMillion: number } | null>();
 
     // Agrega por modelo. Cada sessão pode ter múltiplos modelos (models_used).
     // Quando há múltiplos, distribuímos os tokens/custo igualitariamente.
@@ -60,11 +124,9 @@ export async function GET() {
     const models = Array.from(acc.entries())
       .map(([name, v]) => {
         // Status baseado em QUEM FORNECE O PREÇO REAL.
-        // - "unmatched" (Sem preço) = LiteLLM não tem E custom é 0/0 (sem preço real)
-        // - "custom" (Custom)      = usuário definiu inputPerMillion ou outputPerMillion > 0
-        // - "priced" (Com preço)   = LiteLLM tem preço (tokscale calcula)
-        // Adicionar um preço real em custom-pricing.json move o modelo
-        // de "Sem preço" para "Custom".
+        // - "custom"    = usuário definiu inputPerMillion > 0 OR outputPerMillion > 0
+        // - "unmatched" = em unmatched-models.json AND sem custom com valor
+        // - "priced"    = LiteLLM tem preço (tokscale calcula)
         const custom = customPricing[name];
         const hasRealCustom =
           custom !== undefined &&
@@ -78,6 +140,12 @@ export async function GET() {
         } else {
           status = "priced";
         }
+
+        // Preço LiteLLM (se aplicável)
+        if (!litellmCache.has(name)) {
+          litellmCache.set(name, findLiteLLMPrice(name, litellmCatalog));
+        }
+        const litellmPrice = litellmCache.get(name) ?? null;
 
         return {
           name,
@@ -94,6 +162,7 @@ export async function GET() {
                 updatedAt: custom.updatedAt,
               }
             : null,
+          litellmPrice,
         };
       })
       // Ordena por sessões desc

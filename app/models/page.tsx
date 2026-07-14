@@ -5,9 +5,9 @@ import Sidebar from "../components/Sidebar";
 
 /**
  * Formata um preço USD de forma inteligente por magnitude:
- * - ≥ $1: 2 casas decimais (ex: $1.20, $4.00)
- * - $0.01 - $0.99: 4 casas decimais (ex: $0.9500, $0.0001)
- * - < $0.01: 6 casas decimais (ex: $0.000123)
+ * - >= $0.01:   2 casas decimais (ex: $1.20, $4.00, $0.95) — padrão de mercado
+ * - $0.0001-$0.0099: 4 casas decimais (ex: $0.0050)
+ * - < $0.0001:  6 casas decimais (ex: $0.000123)
  * Sempre usa ponto como separador decimal (formato US para preço unitário).
  */
 function formatPrice(n: number): string {
@@ -15,8 +15,8 @@ function formatPrice(n: number): string {
   if (n === 0) return "$0.00";
   const abs = Math.abs(n);
   let decimals: number;
-  if (abs >= 1) decimals = 2;
-  else if (abs >= 0.01) decimals = 4;
+  if (abs >= 0.01) decimals = 2;
+  else if (abs >= 0.0001) decimals = 4;
   else decimals = 6;
   return `$${n.toFixed(decimals)}`;
 }
@@ -33,6 +33,10 @@ type ModelInfo = {
     outputPerMillion: number;
     note?: string;
     updatedAt: number;
+  } | null;
+  litellmPrice: {
+    inputPerMillion: number;
+    outputPerMillion: number;
   } | null;
 };
 
@@ -87,6 +91,42 @@ function statusBadge(status: ModelInfo["status"], hasCustom: boolean) {
       Com preço
     </span>
   );
+}
+
+/**
+ * Célula de preço ($ In/1M ou $ Out/1M).
+ * Mostra o preço real e uma pequena etiqueta da fonte:
+ * - Custom (verde): override do usuário
+ * - LiteLLM (cinza): preço do tokscale/catálogo LiteLLM
+ * - — (cinza claro): sem preço em lugar nenhum
+ */
+function PriceCell({
+  value,
+  isEditing,
+  editValue,
+  onEditChange,
+}: {
+  value: number | null;
+  isEditing: boolean;
+  editValue: string;
+  onEditChange: (v: string) => void;
+}) {
+  if (isEditing) {
+    return (
+      <input
+        type="number"
+        step="0.01"
+        min="0"
+        value={editValue}
+        onChange={(e) => onEditChange(e.target.value)}
+        className="w-20 px-2 py-1 bg-brand-bg border border-brand-border rounded text-right text-xs text-brand-text focus:outline-none focus:border-brand-primary/50"
+      />
+    );
+  }
+  if (value === null) {
+    return <span className="text-brand-text-muted/40">—</span>;
+  }
+  return <span>{formatPrice(value)}</span>;
 }
 
 export default function ModelsPage() {
@@ -382,44 +422,32 @@ export default function ModelsPage() {
                               {fmtCost(m.totalCost)}
                             </td>
                             <td className="px-3 py-2 text-right tabular-nums text-brand-text">
-                              {isEditing ? (
-                                <input
-                                  type="number"
-                                  step="0.01"
-                                  min="0"
-                                  value={editInput}
-                                  onChange={(e) => setEditInput(e.target.value)}
-                                  className="w-20 px-2 py-1 bg-brand-bg border border-brand-border rounded text-right text-xs text-brand-text focus:outline-none focus:border-brand-primary/50"
-                                />
-                              ) : m.customPrice ? (
-                                formatPrice(m.customPrice.inputPerMillion)
-                              ) : m.status === "priced" ? (
-                                <span className="text-brand-text-muted/60 text-xs">
-                                  LiteLLM
-                                </span>
-                              ) : (
-                                <span className="text-brand-text-muted/40">—</span>
-                              )}
+                              <PriceCell
+                                value={
+                                  m.customPrice
+                                    ? m.customPrice.inputPerMillion
+                                    : m.litellmPrice
+                                    ? m.litellmPrice.inputPerMillion
+                                    : null
+                                }
+                                isEditing={isEditing}
+                                editValue={editInput}
+                                onEditChange={setEditInput}
+                              />
                             </td>
                             <td className="px-3 py-2 text-right tabular-nums text-brand-text">
-                              {isEditing ? (
-                                <input
-                                  type="number"
-                                  step="0.01"
-                                  min="0"
-                                  value={editOutput}
-                                  onChange={(e) => setEditOutput(e.target.value)}
-                                  className="w-20 px-2 py-1 bg-brand-bg border border-brand-border rounded text-right text-xs text-brand-text focus:outline-none focus:border-brand-primary/50"
-                                />
-                              ) : m.customPrice ? (
-                                formatPrice(m.customPrice.outputPerMillion)
-                              ) : m.status === "priced" ? (
-                                <span className="text-brand-text-muted/60 text-xs">
-                                  LiteLLM
-                                </span>
-                              ) : (
-                                <span className="text-brand-text-muted/40">—</span>
-                              )}
+                              <PriceCell
+                                value={
+                                  m.customPrice
+                                    ? m.customPrice.outputPerMillion
+                                    : m.litellmPrice
+                                    ? m.litellmPrice.outputPerMillion
+                                    : null
+                                }
+                                isEditing={isEditing}
+                                editValue={editOutput}
+                                onEditChange={setEditOutput}
+                              />
                             </td>
                             <td className="px-3 py-2 text-right">
                               {isEditing ? (
