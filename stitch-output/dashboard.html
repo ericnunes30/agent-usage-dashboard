@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Analytics AI - Usage Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&amp;family=Inter:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-primary-fixed": "#002113",
+                    "on-secondary": "#002e6a",
+                    "error": "#ffb4ab",
+                    "outline": "#86948a",
+                    "on-tertiary-container": "#550093",
+                    "tertiary-container": "#c487ff",
+                    "on-error-container": "#ffdad6",
+                    "secondary": "#adc6ff",
+                    "on-surface-variant": "#bbcabf",
+                    "outline-variant": "#3c4a42",
+                    "primary-fixed": "#6ffbbe",
+                    "surface-variant": "#33343c",
+                    "primary-container": "#10b981",
+                    "on-error": "#690005",
+                    "error-container": "#93000a",
+                    "on-secondary-container": "#e6ecff",
+                    "on-tertiary": "#490080",
+                    "surface-container-lowest": "#0c0e14",
+                    "tertiary-fixed-dim": "#ddb7ff",
+                    "on-surface": "#e2e1eb",
+                    "surface-container-low": "#1a1b22",
+                    "on-tertiary-fixed-variant": "#6900b3",
+                    "tertiary-fixed": "#f0dbff",
+                    "surface-container-highest": "#33343c",
+                    "on-secondary-fixed-variant": "#004395",
+                    "on-primary-fixed-variant": "#005236",
+                    "surface-container-high": "#282a31",
+                    "background": "#12131a",
+                    "secondary-container": "#0566d9",
+                    "tertiary": "#ddb7ff",
+                    "surface-bright": "#383940",
+                    "primary-fixed-dim": "#4edea3",
+                    "surface-dim": "#12131a",
+                    "on-tertiary-fixed": "#2c0051",
+                    "on-background": "#e2e1eb",
+                    "secondary-fixed": "#d8e2ff",
+                    "surface-tint": "#4edea3",
+                    "inverse-on-surface": "#2f3037",
+                    "surface-container": "#1e1f26",
+                    "secondary-fixed-dim": "#adc6ff",
+                    "on-primary": "#003824",
+                    "on-secondary-fixed": "#001a42",
+                    "inverse-primary": "#006c49",
+                    "on-primary-container": "#00422b",
+                    "primary": "#4edea3",
+                    "surface": "#12131a",
+                    "inverse-surface": "#e2e1eb",
+                    // Brand Specific Colors
+                    "brand-bg": "#0a0a0a",
+                    "brand-surface": "#141414",
+                    "brand-border": "#262626",
+                    "brand-border-hover": "#3f3f46",
+                    "brand-text": "#f4f4f5",
+                    "brand-text-muted": "#a1a1aa",
+                    "brand-primary": "#10b981",
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "margin-mobile": "16px",
+                    "container-max": "1440px",
+                    "unit": "4px",
+                    "margin-desktop": "32px",
+                    "gutter": "16px"
+            },
+            "fontFamily": {
+                    "code-sm": [
+                            "Geist"
+                    ],
+                    "body-lg": [
+                            "Inter"
+                    ],
+                    "headline-sm": [
+                            "Inter"
+                    ],
+                    "headline-lg": [
+                            "Inter"
+                    ],
+                    "headline-md": [
+                            "Inter"
+                    ],
+                    "body-sm": [
+                            "Inter"
+                    ],
+                    "code-md": [
+                            "Geist"
+                    ],
+                    "body-md": [
+                            "Inter"
+                    ],
+                    "label-caps": [
+                            "Inter"
+                    ]
+            },
+            "fontSize": {
+                    "code-sm": [
+                            "12px",
+                            {
+                                    "lineHeight": "16px",
+                                    "fontWeight": "400"
+                            }
+                    ],
+                    "body-lg": [
+                            "16px",
+                            {
+                                    "lineHeight": "24px",
+                                    "fontWeight": "400"
+                            }
+                    ],
+                    "headline-sm": [
+                            "18px",
+                            {
+                                    "lineHeight": "26px",
+                                    "letterSpacing": "-0.01em",
+                                    "fontWeight": "600"
+                            }
+                    ],
+                    "headline-lg": [
+                            "30px",
+                            {
+                                    "lineHeight": "38px",
+                                    "letterSpacing": "-0.02em",
+                                    "fontWeight": "600"
+                            }
+                    ],
+                    "headline-md": [
+                            "24px",
+                            {
+                                    "lineHeight": "32px",
+                                    "letterSpacing": "-0.02em",
+                                    "fontWeight": "600"
+                            }
+                    ],
+                    "body-sm": [
+                            "13px",
+                            {
+                                    "lineHeight": "18px",
+                                    "fontWeight": "400"
+                            }
+                    ],
+                    "code-md": [
+                            "14px",
+                            {
+                                    "lineHeight": "20px",
+                                    "fontWeight": "400"
+                            }
+                    ],
+                    "body-md": [
+                            "14px",
+                            {
+                                    "lineHeight": "20px",
+                                    "fontWeight": "400"
+                            }
+                    ],
+                    "label-caps": [
+                            "11px",
+                            {
+                                    "lineHeight": "16px",
+                                    "letterSpacing": "0.05em",
+                                    "fontWeight": "600"
+                            }
+                    ]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            background-color: #0a0a0a; /* Fallback */
+        }
+        .blur-glow {
+            filter: blur(8px);
+            opacity: 0.5;
+        }
+        /* Hide scrollbar for Chrome, Safari and Opera */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        /* Hide scrollbar for IE, Edge and Firefox */
+        .no-scrollbar {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+    </style>
+</head>
+<body class="bg-brand-bg text-brand-text font-body-md min-h-screen flex w-full">
+<!-- SideNav (Generated from JSON) -->
+<nav class="hidden md:flex flex-col h-screen w-64 bg-surface-container-low dark:bg-surface-container-low border-r border-outline-variant dark:border-outline-variant py-margin-desktop sticky top-0 left-0 z-40 transition-all duration-200 ease-in-out shrink-0">
+<div class="px-6 mb-8 flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-brand-border flex items-center justify-center overflow-hidden shrink-0">
+<span class="material-symbols-outlined text-brand-text-muted text-[18px]" data-icon="person">person</span>
+</div>
+<div>
+<h2 class="font-headline-sm text-headline-sm text-on-surface">Admin Panel</h2>
+<p class="font-label-caps text-label-caps text-brand-text-muted mt-0.5">Premium Access</p>
+</div>
+</div>
+<div class="px-4 mb-6">
+<button class="w-full bg-brand-surface border border-brand-border hover:border-brand-border-hover text-brand-text font-body-sm py-2 rounded-lg transition-colors flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-[16px]" data-icon="add">add</span>
+                New Report
+            </button>
+</div>
+<ul class="flex flex-col gap-1 px-4 flex-grow">
+<!-- Active: Dashboard -->
+<li>
+<a class="flex items-center gap-3 px-3 py-2 bg-secondary-container dark:bg-secondary-container text-on-secondary-container dark:text-on-secondary-container rounded-lg font-label-caps text-label-caps hover:bg-surface-container-high dark:hover:bg-surface-container-high transition-colors" href="#">
+<span class="material-symbols-outlined text-[18px]" data-icon="dashboard">dashboard</span>
+                    Dashboard
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant dark:text-on-surface-variant rounded-lg font-label-caps text-label-caps hover:bg-surface-container-high dark:hover:bg-surface-container-high transition-colors" href="#">
+<span class="material-symbols-outlined text-[18px]" data-icon="workspaces">workspaces</span>
+                    Workspaces
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant dark:text-on-surface-variant rounded-lg font-label-caps text-label-caps hover:bg-surface-container-high dark:hover:bg-surface-container-high transition-colors" href="#">
+<span class="material-symbols-outlined text-[18px]" data-icon="neurology">neurology</span>
+                    Models
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant dark:text-on-surface-variant rounded-lg font-label-caps text-label-caps hover:bg-surface-container-high dark:hover:bg-surface-container-high transition-colors" href="#">
+<span class="material-symbols-outlined text-[18px]" data-icon="support_agent">support_agent</span>
+                    Agents
+                </a>
+</li>
+</ul>
+<div class="mt-auto px-4">
+<ul class="flex flex-col gap-1">
+<li>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant dark:text-on-surface-variant rounded-lg font-label-caps text-label-caps hover:bg-surface-container-high dark:hover:bg-surface-container-high transition-colors" href="#">
+<span class="material-symbols-outlined text-[18px]" data-icon="settings">settings</span>
+                        Settings
+                    </a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant dark:text-on-surface-variant rounded-lg font-label-caps text-label-caps hover:bg-surface-container-high dark:hover:bg-surface-container-high transition-colors" href="#">
+<span class="material-symbols-outlined text-[18px]" data-icon="logout">logout</span>
+                        Logout
+                    </a>
+</li>
+</ul>
+</div>
+</nav>
+<!-- Main Content Area -->
+<main class="flex-grow flex flex-col min-h-screen relative w-full md:w-[calc(100%-16rem)]">
+<!-- TopNavBar (Generated from JSON) -->
+<header class="flex justify-between items-center w-full px-margin-desktop py-4 sticky top-0 z-50 bg-background dark:bg-background border-b border-outline-variant dark:border-outline-variant flat no shadows">
+<div class="flex flex-col">
+<h1 class="text-headline-md font-headline-md font-bold text-primary dark:text-primary leading-tight tracking-tight">Usage Dashboard</h1>
+<p class="font-body-md text-body-md text-brand-text-muted mt-0.5">Total: 1,248 sessions</p>
+</div>
+<div class="flex items-center gap-4">
+<button class="flex items-center gap-2 px-3 py-1.5 rounded-md bg-[#2a1700] border border-[#f59e0b]/30 text-[#fbbf24] font-body-sm hover:bg-[#3d2200] transition-colors">
+<span class="text-[14px]">⚠</span>
+                    6 sem preço
+                </button>
+<div class="relative">
+<select class="appearance-none bg-brand-bg border border-brand-border text-brand-text font-body-sm rounded-md pl-3 pr-8 py-1.5 focus:outline-none focus:border-brand-border-hover focus:ring-1 focus:ring-brand-border-hover cursor-pointer hover:border-brand-border-hover transition-colors">
+<option value="BRL">BRL</option>
+<option value="USD">USD</option>
+<option value="EUR">EUR</option>
+<option value="GBP">GBP</option>
+</select>
+<div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-brand-text-muted">
+<span class="material-symbols-outlined text-[16px]" data-icon="expand_more">expand_more</span>
+</div>
+</div>
+<button class="flex items-center gap-2 px-4 py-1.5 rounded-md bg-brand-primary text-black font-body-sm font-semibold hover:bg-emerald-400 transition-colors hover:bg-surface-variant dark:hover:bg-surface-variant transition-colors Active: scale-95 transition-transform">
+<span class="material-symbols-outlined text-[16px] text-black" data-icon="refresh">refresh</span>
+                    Atualizar dados
+                </button>
+<!-- Trailing icon actions from JSON -->
+<div class="flex gap-2 ml-2 hidden md:flex">
+<button aria-label="monetization_on" class="w-8 h-8 rounded-md flex items-center justify-center text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-variant dark:hover:bg-surface-variant transition-colors Active: scale-95 transition-transform">
+<span class="material-symbols-outlined text-[20px]" data-icon="monetization_on">monetization_on</span>
+</button>
+</div>
+</div>
+</header>
+<!-- Canvas -->
+<div class="flex-grow p-4 md:p-margin-desktop overflow-y-auto no-scrollbar max-w-container-max mx-auto w-full flex flex-col gap-gutter">
+<!-- Filters Card -->
+<div class="bg-brand-surface border border-brand-border rounded-lg p-3 flex flex-col md:flex-row gap-4 items-center">
+<div class="relative w-full md:w-64 shrink-0">
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-brand-text-muted text-[16px]" data-icon="search">search</span>
+</div>
+<input class="w-full bg-brand-bg border border-brand-border text-brand-text font-body-sm rounded-md pl-9 pr-3 py-2 focus:outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary transition-colors placeholder-brand-text-muted" placeholder="Buscar..." type="text"/>
+</div>
+<div class="flex-grow flex flex-wrap md:flex-nowrap gap-4 w-full">
+<!-- Agente Dropdown -->
+<div class="relative flex-grow md:w-1/4">
+<select class="w-full appearance-none bg-brand-bg border border-brand-border text-brand-text font-body-sm rounded-md pl-3 pr-8 py-2 focus:outline-none focus:border-brand-border-hover focus:ring-1 focus:ring-brand-border-hover cursor-pointer hover:border-brand-border-hover transition-colors">
+<option value="">Agente</option>
+<option value="all">Todos</option>
+</select>
+<div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-brand-text-muted">
+<span class="material-symbols-outlined text-[16px]" data-icon="expand_more">expand_more</span>
+</div>
+</div>
+<!-- Workspace Dropdown -->
+<div class="relative flex-grow md:w-1/4">
+<select class="w-full appearance-none bg-brand-bg border border-brand-border text-brand-text font-body-sm rounded-md pl-3 pr-8 py-2 focus:outline-none focus:border-brand-border-hover focus:ring-1 focus:ring-brand-border-hover cursor-pointer hover:border-brand-border-hover transition-colors">
+<option value="">Workspace</option>
+<option value="all">Todos</option>
+</select>
+<div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-brand-text-muted">
+<span class="material-symbols-outlined text-[16px]" data-icon="expand_more">expand_more</span>
+</div>
+</div>
+<!-- Modelo Dropdown -->
+<div class="relative flex-grow md:w-1/4">
+<select class="w-full appearance-none bg-brand-bg border border-brand-border text-brand-text font-body-sm rounded-md pl-3 pr-8 py-2 focus:outline-none focus:border-brand-border-hover focus:ring-1 focus:ring-brand-border-hover cursor-pointer hover:border-brand-border-hover transition-colors">
+<option value="">Modelo</option>
+<option value="gpt4">GPT-4</option>
+<option value="llama3">Llama-3</option>
+</select>
+<div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-brand-text-muted">
+<span class="material-symbols-outlined text-[16px]" data-icon="expand_more">expand_more</span>
+</div>
+</div>
+<!-- Período Dropdown -->
+<div class="relative flex-grow md:w-1/4">
+<select class="w-full appearance-none bg-brand-bg border border-brand-border text-brand-text font-body-sm rounded-md pl-3 pr-8 py-2 focus:outline-none focus:border-brand-border-hover focus:ring-1 focus:ring-brand-border-hover cursor-pointer hover:border-brand-border-hover transition-colors">
+<option value="">Período</option>
+<option value="7d">Últimos 7 dias</option>
+<option value="30d">Últimos 30 dias</option>
+</select>
+<div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-brand-text-muted">
+<span class="material-symbols-outlined text-[16px]" data-icon="expand_more">expand_more</span>
+</div>
+</div>
+</div>
+</div>
+<!-- KPI Section (5 cards in a row) -->
+<div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+<!-- Card 1 -->
+<div class="bg-brand-surface border border-brand-border rounded-lg p-4 flex flex-col justify-between">
+<span class="font-label-caps text-label-caps text-brand-text-muted uppercase tracking-wider">Sessões</span>
+<span class="font-headline-lg text-headline-lg font-semibold text-brand-text mt-2">1,248</span>
+</div>
+<!-- Card 2 -->
+<div class="bg-brand-surface border border-brand-border rounded-lg p-4 flex flex-col justify-between col-span-2 md:col-span-1 ring-1 ring-brand-primary/20 bg-brand-primary/5">
+<span class="font-label-caps text-label-caps text-brand-text-muted uppercase tracking-wider">Custo Total</span>
+<span class="font-headline-lg text-headline-lg font-semibold text-brand-primary mt-2">R$ 42,50</span>
+</div>
+<!-- Card 3 -->
+<div class="bg-brand-surface border border-brand-border rounded-lg p-4 flex flex-col justify-between">
+<span class="font-label-caps text-label-caps text-brand-text-muted uppercase tracking-wider">Input Tokens</span>
+<span class="font-headline-lg text-headline-lg font-semibold text-brand-text mt-2">4.2M</span>
+</div>
+<!-- Card 4 -->
+<div class="bg-brand-surface border border-brand-border rounded-lg p-4 flex flex-col justify-between">
+<span class="font-label-caps text-label-caps text-brand-text-muted uppercase tracking-wider">Output Tokens</span>
+<span class="font-headline-lg text-headline-lg font-semibold text-brand-text mt-2">1.8M</span>
+</div>
+<!-- Card 5 -->
+<div class="bg-brand-surface border border-brand-border rounded-lg p-4 flex flex-col justify-between">
+<span class="font-label-caps text-label-caps text-brand-text-muted uppercase tracking-wider">Cache Read</span>
+<span class="font-headline-lg text-headline-lg font-semibold text-brand-text mt-2">850k</span>
+</div>
+</div>
+<!-- Charts Grid (2x2) -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+<!-- Chart 1: Line Chart -->
+<div class="bg-brand-surface border border-brand-border rounded-lg p-4 h-[300px] flex flex-col">
+<div class="flex justify-between items-center mb-4">
+<h3 class="font-body-md text-body-md font-semibold text-brand-text">Custo por dia</h3>
+</div>
+<div class="flex-grow relative w-full h-full border-b border-l border-brand-border/50">
+<!-- Abstract Line Representation using SVG -->
+<svg class="absolute inset-0 w-full h-full" preserveaspectratio="none" viewbox="0 0 100 100">
+<!-- Grid lines -->
+<line stroke="#262626" stroke-dasharray="2 2" stroke-width="0.5" x1="0" x2="100" y1="25" y2="25"></line>
+<line stroke="#262626" stroke-dasharray="2 2" stroke-width="0.5" x1="0" x2="100" y1="50" y2="50"></line>
+<line stroke="#262626" stroke-dasharray="2 2" stroke-width="0.5" x1="0" x2="100" y1="75" y2="75"></line>
+<!-- Glow path -->
+<path class="blur-glow" d="M0,80 L20,60 L40,70 L60,30 L80,40 L100,10" fill="none" stroke="#10b981" stroke-width="3"></path>
+<!-- Main path -->
+<path d="M0,80 L20,60 L40,70 L60,30 L80,40 L100,10" fill="none" stroke="#10b981" stroke-width="1.5"></path>
+</svg>
+<!-- Y-axis labels -->
+<div class="absolute left-0 top-0 h-full flex flex-col justify-between text-[10px] text-brand-text-muted -ml-6 py-2">
+<span>$10</span>
+<span>$5</span>
+<span>$0</span>
+</div>
+</div>
+</div>
+<!-- Chart 2: Pie Chart (Abstract representation) -->
+<div class="bg-brand-surface border border-brand-border rounded-lg p-4 h-[300px] flex flex-col">
+<h3 class="font-body-md text-body-md font-semibold text-brand-text mb-4">Custo por agente</h3>
+<div class="flex-grow flex items-center justify-center gap-8">
+<div class="relative w-40 h-40 rounded-full border-8 border-brand-bg flex items-center justify-center" style="background: conic-gradient(#10b981 0% 40%, #0566d9 40% 70%, #c487ff 70% 90%, #f59e0b 90% 100%);">
+<div class="absolute inset-0 m-auto w-24 h-24 bg-brand-surface rounded-full flex items-center justify-center flex-col">
+<span class="font-label-caps text-label-caps text-brand-text-muted">Total</span>
+<span class="font-headline-sm text-headline-sm text-brand-text">100%</span>
+</div>
+</div>
+<div class="flex flex-col gap-2">
+<div class="flex items-center gap-2"><span class="w-3 h-3 rounded-sm bg-[#10b981]"></span><span class="font-body-sm text-body-sm text-brand-text-muted">Agent Alpha</span></div>
+<div class="flex items-center gap-2"><span class="w-3 h-3 rounded-sm bg-[#0566d9]"></span><span class="font-body-sm text-body-sm text-brand-text-muted">Code Bot</span></div>
+<div class="flex items-center gap-2"><span class="w-3 h-3 rounded-sm bg-[#c487ff]"></span><span class="font-body-sm text-body-sm text-brand-text-muted">Reviewer</span></div>
+<div class="flex items-center gap-2"><span class="w-3 h-3 rounded-sm bg-[#f59e0b]"></span><span class="font-body-sm text-body-sm text-brand-text-muted">Other</span></div>
+</div>
+</div>
+</div>
+<!-- Chart 3: Horizontal Bar Chart -->
+<div class="bg-brand-surface border border-brand-border rounded-lg p-4 h-[300px] flex flex-col">
+<h3 class="font-body-md text-body-md font-semibold text-brand-text mb-4">Top 10 modelos por custo</h3>
+<div class="flex-grow flex flex-col justify-around gap-2">
+<!-- Bar 1 -->
+<div class="flex items-center gap-3">
+<span class="w-20 font-code-sm text-code-sm text-brand-text-muted truncate">gpt-4-turbo</span>
+<div class="flex-grow h-3 bg-brand-bg rounded-r-sm overflow-hidden flex items-center">
+<div class="h-full bg-[#0566d9] rounded-r-sm" style="width: 85%;"></div>
+</div>
+<span class="w-12 text-right font-code-sm text-code-sm text-brand-text">$18.40</span>
+</div>
+<!-- Bar 2 -->
+<div class="flex items-center gap-3">
+<span class="w-20 font-code-sm text-code-sm text-brand-text-muted truncate">claude-3-opus</span>
+<div class="flex-grow h-3 bg-brand-bg rounded-r-sm overflow-hidden flex items-center">
+<div class="h-full bg-[#0566d9] rounded-r-sm" style="width: 60%;"></div>
+</div>
+<span class="w-12 text-right font-code-sm text-code-sm text-brand-text">$12.10</span>
+</div>
+<!-- Bar 3 -->
+<div class="flex items-center gap-3">
+<span class="w-20 font-code-sm text-code-sm text-brand-text-muted truncate">llama-3-70b</span>
+<div class="flex-grow h-3 bg-brand-bg rounded-r-sm overflow-hidden flex items-center">
+<div class="h-full bg-[#0566d9] rounded-r-sm" style="width: 35%;"></div>
+</div>
+<span class="w-12 text-right font-code-sm text-code-sm text-brand-text">$5.30</span>
+</div>
+<!-- Bar 4 -->
+<div class="flex items-center gap-3">
+<span class="w-20 font-code-sm text-code-sm text-brand-text-muted truncate">gpt-3.5-turbo</span>
+<div class="flex-grow h-3 bg-brand-bg rounded-r-sm overflow-hidden flex items-center">
+<div class="h-full bg-[#0566d9] rounded-r-sm" style="width: 20%;"></div>
+</div>
+<span class="w-12 text-right font-code-sm text-code-sm text-brand-text">$2.80</span>
+</div>
+<!-- Bar 5 -->
+<div class="flex items-center gap-3">
+<span class="w-20 font-code-sm text-code-sm text-brand-text-muted truncate">mixtral-8x7b</span>
+<div class="flex-grow h-3 bg-brand-bg rounded-r-sm overflow-hidden flex items-center">
+<div class="h-full bg-[#0566d9] rounded-r-sm" style="width: 10%;"></div>
+</div>
+<span class="w-12 text-right font-code-sm text-code-sm text-brand-text">$1.20</span>
+</div>
+</div>
+</div>
+<!-- Chart 4: Vertical Bar Chart -->
+<div class="bg-brand-surface border border-brand-border rounded-lg p-4 h-[300px] flex flex-col">
+<h3 class="font-body-md text-body-md font-semibold text-brand-text mb-4">Sessões por dia</h3>
+<div class="flex-grow relative flex items-end justify-between px-2 pt-4 border-b border-brand-border/50 gap-1">
+<!-- Abstract Bars -->
+<div class="w-full bg-[#c487ff] rounded-t-sm" style="height: 40%;"></div>
+<div class="w-full bg-[#c487ff] rounded-t-sm" style="height: 60%;"></div>
+<div class="w-full bg-[#c487ff] rounded-t-sm" style="height: 30%;"></div>
+<div class="w-full bg-[#c487ff] rounded-t-sm" style="height: 80%;"></div>
+<div class="w-full bg-[#c487ff] rounded-t-sm" style="height: 50%;"></div>
+<div class="w-full bg-[#c487ff] rounded-t-sm" style="height: 90%;"></div>
+<div class="w-full bg-[#c487ff] rounded-t-sm" style="height: 70%;"></div>
+</div>
+<div class="flex justify-between text-[10px] text-brand-text-muted mt-2 px-2">
+<span>Seg</span>
+<span>Ter</span>
+<span>Qua</span>
+<span>Qui</span>
+<span>Sex</span>
+<span>Sab</span>
+<span>Dom</span>
+</div>
+</div>
+</div>
+<!-- Data Table -->
+<div class="bg-brand-surface border border-brand-border rounded-lg flex flex-col overflow-hidden mb-8">
+<div class="overflow-x-auto no-scrollbar">
+<table class="w-full text-left border-collapse">
+<thead class="sticky top-0 bg-brand-surface z-10 border-b border-brand-border">
+<tr>
+<th class="py-3 px-4 font-label-caps text-label-caps text-brand-text-muted font-normal uppercase tracking-wider">Quando</th>
+<th class="py-3 px-4 font-label-caps text-label-caps text-brand-text-muted font-normal uppercase tracking-wider">Agente</th>
+<th class="py-3 px-4 font-label-caps text-label-caps text-brand-text-muted font-normal uppercase tracking-wider">Workspace</th>
+<th class="py-3 px-4 font-label-caps text-label-caps text-brand-text-muted font-normal uppercase tracking-wider">Modelo</th>
+<th class="py-3 px-4 font-label-caps text-label-caps text-brand-text-muted font-normal uppercase tracking-wider text-right">Msgs</th>
+<th class="py-3 px-4 font-label-caps text-label-caps text-brand-text-muted font-normal uppercase tracking-wider text-right">Tokens in</th>
+<th class="py-3 px-4 font-label-caps text-label-caps text-brand-text-muted font-normal uppercase tracking-wider text-right">Tokens out</th>
+<th class="py-3 px-4 font-label-caps text-label-caps text-brand-text-muted font-normal uppercase tracking-wider text-right">Custo</th>
+</tr>
+</thead>
+<tbody class="font-body-sm text-body-sm divide-y divide-brand-border/50">
+<!-- Row 1 -->
+<tr class="hover:bg-brand-border/20 transition-colors">
+<td class="py-2.5 px-4 text-brand-text-muted whitespace-nowrap">2 min ago</td>
+<td class="py-2.5 px-4">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-blue-900/30 text-blue-300 border border-blue-800/50">
+                                        Code Bot
+                                    </span>
+</td>
+<td class="py-2.5 px-4 text-brand-text">Frontend Repo</td>
+<td class="py-2.5 px-4 font-code-sm text-code-sm text-brand-text-muted">gpt-4-turbo</td>
+<td class="py-2.5 px-4 text-right text-brand-text">12</td>
+<td class="py-2.5 px-4 text-right text-brand-text-muted">4,521</td>
+<td class="py-2.5 px-4 text-right text-brand-text-muted">890</td>
+<td class="py-2.5 px-4 text-right font-code-sm text-code-sm text-brand-primary">R$ 0,12</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-brand-border/20 transition-colors">
+<td class="py-2.5 px-4 text-brand-text-muted whitespace-nowrap">15 min ago</td>
+<td class="py-2.5 px-4">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-purple-900/30 text-purple-300 border border-purple-800/50">
+                                        Reviewer
+                                    </span>
+</td>
+<td class="py-2.5 px-4 text-brand-text">Backend Repo</td>
+<td class="py-2.5 px-4 font-code-sm text-code-sm text-brand-text-muted">claude-3-opus</td>
+<td class="py-2.5 px-4 text-right text-brand-text">4</td>
+<td class="py-2.5 px-4 text-right text-brand-text-muted">12,400</td>
+<td class="py-2.5 px-4 text-right text-brand-text-muted">2,100</td>
+<td class="py-2.5 px-4 text-right font-code-sm text-code-sm text-brand-primary">R$ 0,85</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-brand-border/20 transition-colors">
+<td class="py-2.5 px-4 text-brand-text-muted whitespace-nowrap">1 hour ago</td>
+<td class="py-2.5 px-4">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-900/30 text-emerald-300 border border-emerald-800/50">
+                                        Agent Alpha
+                                    </span>
+</td>
+<td class="py-2.5 px-4 text-brand-text">Data Pipeline</td>
+<td class="py-2.5 px-4 font-code-sm text-code-sm text-brand-text-muted">llama-3-70b</td>
+<td class="py-2.5 px-4 text-right text-brand-text">28</td>
+<td class="py-2.5 px-4 text-right text-brand-text-muted">8,200</td>
+<td class="py-2.5 px-4 text-right text-brand-text-muted">4,500</td>
+<td class="py-2.5 px-4 text-right font-code-sm text-code-sm text-brand-primary">R$ 0,05</td>
+</tr>
+<!-- Row 4 -->
+<tr class="hover:bg-brand-border/20 transition-colors">
+<td class="py-2.5 px-4 text-brand-text-muted whitespace-nowrap">2 hours ago</td>
+<td class="py-2.5 px-4">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-blue-900/30 text-blue-300 border border-blue-800/50">
+                                        Code Bot
+                                    </span>
+</td>
+<td class="py-2.5 px-4 text-brand-text">Frontend Repo</td>
+<td class="py-2.5 px-4 font-code-sm text-code-sm text-brand-text-muted">gpt-3.5-turbo</td>
+<td class="py-2.5 px-4 text-right text-brand-text">2</td>
+<td class="py-2.5 px-4 text-right text-brand-text-muted">1,200</td>
+<td class="py-2.5 px-4 text-right text-brand-text-muted">400</td>
+<td class="py-2.5 px-4 text-right font-code-sm text-code-sm text-brand-primary">R$ 0,01</td>
+</tr>
+<!-- Row 5 -->
+<tr class="hover:bg-brand-border/20 transition-colors">
+<td class="py-2.5 px-4 text-brand-text-muted whitespace-nowrap">3 hours ago</td>
+<td class="py-2.5 px-4">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-orange-900/30 text-orange-300 border border-orange-800/50">
+                                        Support
+                                    </span>
+</td>
+<td class="py-2.5 px-4 text-brand-text">Docs Site</td>
+<td class="py-2.5 px-4 font-code-sm text-code-sm text-brand-text-muted">mixtral-8x7b</td>
+<td class="py-2.5 px-4 text-right text-brand-text">8</td>
+<td class="py-2.5 px-4 text-right text-brand-text-muted">3,100</td>
+<td class="py-2.5 px-4 text-right text-brand-text-muted">1,200</td>
+<td class="py-2.5 px-4 text-right font-code-sm text-code-sm text-brand-primary">R$ 0,02</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</main>
+</body></html>

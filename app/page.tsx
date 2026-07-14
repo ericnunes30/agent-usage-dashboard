@@ -2,9 +2,11 @@
 
 import { useMemo, useState, useEffect } from "react";
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line,
 } from "recharts";
+
+// ============ Types ============
 
 type Session = {
   session_id: string;
@@ -29,9 +31,19 @@ type Session = {
   fm_version: string | null;
 };
 
+type Unmatched = {
+  model: string;
+  sessions: number;
+  totalInput: number;
+  totalOutput: number;
+  totalTokens: number;
+  exampleSessionTitle: string;
+};
+
+// ============ Constants ============
+
 const COLORS = ["#10b981", "#3b82f6", "#a855f7", "#f59e0b", "#ef4444", "#06b6d4", "#ec4899", "#84cc16"];
 
-// Taxas hardcoded como fallback (caso a API do BCB falhe)
 const FALLBACK_RATES: Record<string, number> = {
   USD: 1,
   BRL: 5.43,
@@ -46,9 +58,10 @@ const CURRENCY_OPTIONS = [
   { value: "GBP", label: "GBP (£)" },
 ];
 
-// Opção sentinela para "sem filtro" — exibida como "Todos" no select
 const ALL_OPT = { value: "all", label: "Todos" };
 const withAll = (items: string[]) => [ALL_OPT, ...items.map((v) => ({ value: v, label: v }))];
+
+// ============ Helpers ============
 
 function fmt(n: number): string {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(2) + "M";
@@ -57,7 +70,6 @@ function fmt(n: number): string {
 }
 
 function fmtMoney(n: number, currency: string, rate: number): string {
-  // Converte USD → moeda destino e formata com Intl nativo
   const converted = n * rate;
   try {
     return new Intl.NumberFormat("pt-BR", {
@@ -66,7 +78,6 @@ function fmtMoney(n: number, currency: string, rate: number): string {
       maximumFractionDigits: 2,
     }).format(converted);
   } catch {
-    // Fallback se a moeda for inválida
     return `${currency} ${converted.toFixed(2)}`;
   }
 }
@@ -78,6 +89,8 @@ function fmtDate(ts: number): string {
 function fmtDateTime(ts: number): string {
   return new Date(ts).toISOString().replace("T", " ").slice(0, 16);
 }
+
+// ============ Main Component ============
 
 export default function Page() {
   const [data, setData] = useState<Session[]>([]);
@@ -91,12 +104,10 @@ export default function Page() {
       const r = await fetch("/api/refresh", { method: "POST" });
       const result = await r.json();
       if (result.ok) {
-        // Recarrega os dados
         const r2 = await fetch("/api/sessions", { cache: "no-store" });
         const fresh = await r2.json();
         setData(fresh);
         setLastRefresh(Date.now());
-        // Re-busca unmatched (a lista pode ter mudado)
         fetchUnmatched();
       } else {
         alert("Erro ao atualizar: " + result.error);
@@ -108,15 +119,7 @@ export default function Page() {
     }
   }
 
-  // Unmatched models (detectados pelo /api/refresh, editados pelo usuário)
-  type Unmatched = {
-    model: string;
-    sessions: number;
-    totalInput: number;
-    totalOutput: number;
-    totalTokens: number;
-    exampleSessionTitle: string;
-  };
+  // Unmatched models
   const [unmatched, setUnmatched] = useState<Unmatched[]>([]);
   const [showPricingModal, setShowPricingModal] = useState(false);
 
@@ -148,9 +151,8 @@ export default function Page() {
       .catch(() => setLoading(false));
   }, []);
 
-  // Busca cotação PTAX do Banco Central (USD → BRL/EUR/GBP)
+  // Busca cotação PTAX do Banco Central (USD → BRL)
   useEffect(() => {
-    // Busca os últimos 5 dias úteis (pega o mais recente)
     const today = new Date();
     const start = new Date(today);
     start.setDate(start.getDate() - 7);
@@ -168,12 +170,12 @@ export default function Page() {
       .catch(() => {/* mantém fallback */});
   }, []);
 
-  // Moeda selecionada + taxas de câmbio (USD = base)
+  // Moeda + taxas
   const [currency, setCurrency] = useState<string>("BRL");
   const [exchangeRates, setExchangeRates] = useState<Record<string, number>>(FALLBACK_RATES);
   const currentRate = exchangeRates[currency] ?? FALLBACK_RATES[currency] ?? 1;
 
-  // Valores únicos para os selects
+  // Valores únicos para selects
   const clients = useMemo(() => Array.from(new Set(data.map((s) => s.client))).sort(), [data]);
   const workspaces = useMemo(
     () => Array.from(new Set(data.map((s) => s.workspace_label))).sort(),
@@ -214,7 +216,7 @@ export default function Page() {
     return { totalCost, totalIn, totalOut, totalCache, totalMsgs, count: filtered.length };
   }, [filtered]);
 
-  // Por cliente (para gráfico de pizza)
+  // Por cliente (pizza)
   const byClient = useMemo(() => {
     const m = new Map<string, { cost: number; sessions: number; tokens: number }>();
     for (const s of filtered) {
@@ -262,206 +264,240 @@ export default function Page() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-zinc-400">
-        Carregando 1.885 sessões...
+      <div className="min-h-screen flex items-center justify-center bg-brand-bg text-brand-text-muted font-sans">
+        <div className="flex flex-col items-center gap-3">
+          <span className="material-symbols-outlined text-4xl text-brand-primary animate-pulse">analytics</span>
+          <span>Carregando sessões...</span>
+        </div>
       </div>
     );
   }
 
+  const tooltipStyle = {
+    background: "#1e1f26",
+    border: "1px solid #3c4a42",
+    borderRadius: "8px",
+    color: "#e2e1eb",
+    fontSize: "13px",
+  };
+
   return (
-    <main className="min-h-screen p-6 max-w-[1600px] mx-auto">
-      <header className="mb-6 flex items-start justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-3xl font-bold text-white mb-1">Usage Dashboard</h1>
-          <p className="text-zinc-500 text-sm">
-            pi · claude code · codex · {data.length.toLocaleString()} sessões indexadas via tokscale
-            {lastRefresh && (
-              <span className="ml-2 text-zinc-600">
-                · atualizado {new Date(lastRefresh).toLocaleTimeString()}
-              </span>
-            )}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {unmatched.length > 0 && (
-            <button
-              onClick={() => setShowPricingModal(true)}
-              className="bg-amber-600 hover:bg-amber-500 text-white px-3 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition"
-              title="Modelos com uso real mas custo = $0 (provavelmente sem preço no LiteLLM)"
-            >
-              ⚠ {unmatched.length} sem preço
-            </button>
-          )}
-          <Select
-            id="currency-select"
-            label="Moeda"
-            value={currency}
-            onChange={setCurrency}
-            options={CURRENCY_OPTIONS}
-          />
-          <button
-            onClick={refresh}
-            disabled={refreshing}
-            className="bg-emerald-600 hover:bg-emerald-500 disabled:bg-zinc-700 disabled:text-zinc-500 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition"
-          >
-            {refreshing ? (
-              <>
-                <span className="inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                Atualizando...
-              </>
-            ) : (
-              <>↻ Atualizar dados</>
-            )}
-          </button>
-        </div>
-      </header>
+    <div className="flex min-h-screen bg-brand-bg text-brand-text font-sans">
+      {/* Sidebar */}
+      <Sidebar />
 
-      {/* Filtros */}
-      <section className="bg-surface border border-border rounded-lg p-4 mb-6">
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-          <div className="col-span-2">
-            <label htmlFor="search-input" className="block text-xs text-zinc-500 mb-1">🔎 Buscar</label>
-            <input
-              id="search-input"
-              name="search"
-              type="text"
-              placeholder="Ex: refatorar, mcp, agent-usage..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-bg border border-border rounded px-3 py-2 text-sm text-white placeholder-zinc-600"
-            />
+      {/* Main Content */}
+      <main className="flex-grow flex flex-col min-h-screen md:w-[calc(100%-16rem)]">
+        {/* Header */}
+        <header className="flex justify-between items-center w-full px-4 md:px-8 py-4 sticky top-0 z-50 bg-brand-bg/95 backdrop-blur border-b border-brand-border">
+          <div className="flex flex-col">
+            <h1 className="text-2xl font-bold text-brand-primary leading-tight tracking-tight">Usage Dashboard</h1>
+            <p className="text-sm text-brand-text-muted mt-0.5">
+              pi · claude code · codex · {data.length.toLocaleString()} sessões indexadas via tokscale
+              {lastRefresh && (
+                <span className="ml-2 text-brand-text-muted/60">
+                  · atualizado {new Date(lastRefresh).toLocaleTimeString()}
+                </span>
+              )}
+            </p>
           </div>
-          <Select id="client-filter" label="Agente" value={clientFilter} onChange={setClientFilter} options={withAll(clients)} />
-          <Select id="workspace-filter" label="Workspace" value={workspaceFilter} onChange={setWorkspaceFilter} options={withAll(workspaces.slice(0, 50))} />
-          <Select id="model-filter" label="Modelo" value={modelFilter} onChange={setModelFilter} options={withAll(models)} />
-          <Select
-            id="period-filter"
-            label="Período"
-            value={String(daysBack)}
-            onChange={(v) => setDaysBack(Number(v))}
-            options={[
-              { value: "0", label: "Tudo" },
-              { value: "1", label: "Hoje" },
-              { value: "7", label: "7 dias" },
-              { value: "30", label: "30 dias" },
-              { value: "90", label: "90 dias" },
-            ]}
-          />
-        </div>
-        <div className="mt-3 text-xs text-zinc-500">
-          Mostrando <span className="text-white font-semibold">{filtered.length.toLocaleString()}</span> de{" "}
-          {data.length.toLocaleString()} sessões
-        </div>
-      </section>
-
-      {/* KPIs */}
-      <section className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
-        <Kpi label="Sessões" value={kpis.count.toLocaleString()} />
-        <Kpi label="Custo Total" value={fmtMoney(kpis.totalCost, currency, currentRate)} accent />
-        <Kpi label="Input Tokens" value={fmt(kpis.totalIn)} />
-        <Kpi label="Output Tokens" value={fmt(kpis.totalOut)} />
-        <Kpi label="Cache Read" value={fmt(kpis.totalCache)} />
-      </section>
-
-      {/* Gráficos */}
-      <section className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-        <ChartCard title={`Custo por dia (${currency})`}>
-          <ResponsiveContainer width="100%" height={280}>
-            <LineChart data={byDay}>
-              <CartesianGrid stroke="#262626" />
-              <XAxis dataKey="date" stroke="#71717a" fontSize={11} />
-              <YAxis stroke="#71717a" fontSize={11} />
-              <Tooltip contentStyle={{ background: "#141414", border: "1px solid #262626" }} formatter={(v: any) => fmtMoney(Number(v), currency, currentRate)} />
-              <Line type="monotone" dataKey="cost" stroke="#10b981" dot={false} />
-            </LineChart>
-          </ResponsiveContainer>
-        </ChartCard>
-
-        <ChartCard title={`Custo por cliente (${currency})`}>
-          <ResponsiveContainer width="100%" height={280}>
-            <PieChart>
-              <Pie data={byClient} dataKey="cost" nameKey="name" outerRadius={90} label={(d) => d.name}>
-                {byClient.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-              </Pie>
-              <Tooltip contentStyle={{ background: "#141414", border: "1px solid #262626" }} formatter={(v: any) => fmtMoney(Number(v), currency, currentRate)} />
-            </PieChart>
-          </ResponsiveContainer>
-        </ChartCard>
-
-        <ChartCard title={`Top 10 modelos por custo (${currency})`}>
-          <ResponsiveContainer width="100%" height={320}>
-            <BarChart data={byModel} layout="vertical">
-              <CartesianGrid stroke="#262626" />
-              <XAxis type="number" stroke="#71717a" fontSize={11} />
-              <YAxis dataKey="name" type="category" stroke="#71717a" fontSize={10} width={140} />
-              <Tooltip contentStyle={{ background: "#141414", border: "1px solid #262626" }} formatter={(v: any) => fmtMoney(Number(v), currency, currentRate)} />
-              <Bar dataKey="cost" fill="#3b82f6" />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-
-        <ChartCard title="Sessões por dia">
-          <ResponsiveContainer width="100%" height={320}>
-            <BarChart data={byDay}>
-              <CartesianGrid stroke="#262626" />
-              <XAxis dataKey="date" stroke="#71717a" fontSize={11} />
-              <YAxis stroke="#71717a" fontSize={11} />
-              <Tooltip contentStyle={{ background: "#141414", border: "1px solid #262626" }} />
-              <Bar dataKey="sessions" fill="#a855f7" />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-      </section>
-
-      {/* Tabela */}
-      <section className="bg-surface border border-border rounded-lg overflow-hidden">
-        <div className="p-4 border-b border-border flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-white">Sessões ({filtered.length})</h2>
-          <span className="text-xs text-zinc-500">Ordenado por mais recente</span>
-        </div>
-        <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
-          <table className="w-full text-sm">
-            <thead className="sticky top-0 bg-surface border-b border-border">
-              <tr className="text-left text-zinc-500 text-xs uppercase">
-                <th className="px-4 py-3">Quando</th>
-                <th className="px-4 py-3">Cliente</th>
-                <th className="px-4 py-3">Workspace</th>
-                <th className="px-4 py-3">Modelo</th>
-                <th className="px-4 py-3 text-right">Msgs</th>
-                <th className="px-4 py-3 text-right">Tokens in</th>
-                <th className="px-4 py-3 text-right">Tokens out</th>
-                <th className="px-4 py-3 text-right">Custo</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[...filtered]
-                .sort((a, b) => b.last_active - a.last_active)
-                .slice(0, 500)
-                .map((s) => (
-                  <tr key={s.session_id} className="border-b border-border/50 hover:bg-bg/50 transition">
-                    <td className="px-4 py-3 text-zinc-400 whitespace-nowrap">{fmtDateTime(s.last_active)}</td>
-                    <td className="px-4 py-3">
-                      <ClientBadge client={s.client} />
-                    </td>
-                    <td className="px-4 py-3 text-white">{s.workspace_label}</td>
-                    <td className="px-4 py-3 text-zinc-400 font-mono text-xs">
-                      {s.models_used.join(", ")}
-                    </td>
-                    <td className="px-4 py-3 text-right text-zinc-300">{s.message_count}</td>
-                    <td className="px-4 py-3 text-right text-zinc-300">{fmt(s.total_input_tokens)}</td>
-                    <td className="px-4 py-3 text-right text-zinc-300">{fmt(s.total_output_tokens)}</td>
-                    <td className="px-4 py-3 text-right text-emerald-400 font-mono">{fmtMoney(s.total_cost, currency, currentRate)}</td>
-                  </tr>
+          <div className="flex items-center gap-3">
+            {unmatched.length > 0 && (
+              <button
+                onClick={() => setShowPricingModal(true)}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-amber-950 border border-amber-600/30 text-amber-400 text-sm hover:bg-amber-900/50 transition-colors"
+                title="Modelos com uso real mas custo = $0 (provavelmente sem preço no LiteLLM)"
+              >
+                <span className="text-sm">⚠</span>
+                {unmatched.length} sem preço
+              </button>
+            )}
+            {/* Currency selector */}
+            <div className="relative">
+              <select
+                value={currency}
+                onChange={(e) => setCurrency(e.target.value)}
+                className="appearance-none bg-brand-bg border border-brand-border text-brand-text text-sm rounded-md pl-3 pr-8 py-1.5 focus:outline-none focus:border-brand-border-hover focus:ring-1 focus:ring-brand-border-hover cursor-pointer hover:border-brand-border-hover transition-colors"
+              >
+                {CURRENCY_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
-            </tbody>
-          </table>
-        </div>
-        {filtered.length > 500 && (
-          <div className="p-3 text-xs text-zinc-500 text-center border-t border-border">
-            Mostrando 500 de {filtered.length.toLocaleString()} sessões
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-brand-text-muted">
+                <span className="material-symbols-outlined text-[16px]">expand_more</span>
+              </div>
+            </div>
+            {/* Refresh button */}
+            <button
+              onClick={refresh}
+              disabled={refreshing}
+              className="flex items-center gap-2 px-4 py-1.5 rounded-md bg-brand-primary text-black text-sm font-semibold hover:bg-emerald-400 disabled:bg-zinc-700 disabled:text-zinc-500 transition-colors"
+            >
+              {refreshing ? (
+                <>
+                  <span className="inline-block w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                  Atualizando...
+                </>
+              ) : (
+                <>
+                  <span className="material-symbols-outlined text-[16px] text-black">refresh</span>
+                  Atualizar dados
+                </>
+              )}
+            </button>
           </div>
-        )}
-      </section>
+        </header>
+
+        {/* Content */}
+        <div className="flex-grow px-4 md:px-8 py-4 max-w-[1440px] mx-auto w-full flex flex-col gap-4">
+          {/* Filters */}
+          <section className="bg-brand-surface border border-brand-border rounded-lg p-3 flex flex-col md:flex-row gap-4 items-end">
+            {/* Search */}
+            <div className="w-full md:w-64 shrink-0">
+              <label htmlFor="search-input" className="block text-xs font-semibold uppercase tracking-wider text-brand-text-muted mb-1">Buscar</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <span className="material-symbols-outlined text-brand-text-muted text-[16px]">search</span>
+                </div>
+                <input
+                  id="search-input"
+                  name="search"
+                  type="text"
+                  placeholder="Ex: refatorar, mcp, agent-usage..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full bg-brand-bg border border-brand-border text-brand-text text-sm rounded-md pl-9 pr-3 py-2 focus:outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary transition-colors placeholder-brand-text-muted"
+                />
+              </div>
+            </div>
+            {/* Selects */}
+            <Select id="client-filter" label="Agente" value={clientFilter} onChange={setClientFilter} options={withAll(clients)} />
+            <Select id="workspace-filter" label="Workspace" value={workspaceFilter} onChange={setWorkspaceFilter} options={withAll(workspaces.slice(0, 50))} />
+            <Select id="model-filter" label="Modelo" value={modelFilter} onChange={setModelFilter} options={withAll(models)} />
+            <Select
+              id="period-filter"
+              label="Período"
+              value={String(daysBack)}
+              onChange={(v) => setDaysBack(Number(v))}
+              options={[
+                { value: "0", label: "Tudo" },
+                { value: "1", label: "Hoje" },
+                { value: "7", label: "7 dias" },
+                { value: "30", label: "30 dias" },
+                { value: "90", label: "90 dias" },
+              ]}
+            />
+            <div className="text-xs text-brand-text-muted ml-auto pb-2 whitespace-nowrap">
+              <span className="text-brand-text font-semibold">{filtered.length.toLocaleString()}</span> de {data.length.toLocaleString()} sessões
+            </div>
+          </section>
+
+          {/* KPIs */}
+          <section className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <Kpi label="Sessões" value={kpis.count.toLocaleString()} />
+            <Kpi label="Custo Total" value={fmtMoney(kpis.totalCost, currency, currentRate)} accent />
+            <Kpi label="Input Tokens" value={fmt(kpis.totalIn)} />
+            <Kpi label="Output Tokens" value={fmt(kpis.totalOut)} />
+            <Kpi label="Cache Read" value={fmt(kpis.totalCache)} />
+          </section>
+
+          {/* Charts */}
+          <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <ChartCard title={`Custo por dia (${currency})`}>
+              <ResponsiveContainer width="100%" height={280}>
+                <LineChart data={byDay}>
+                  <CartesianGrid stroke="#262626" strokeDasharray="3 3" />
+                  <XAxis dataKey="date" stroke="#a1a1aa" fontSize={11} />
+                  <YAxis stroke="#a1a1aa" fontSize={11} />
+                  <Tooltip contentStyle={tooltipStyle} formatter={(v: any) => fmtMoney(Number(v), currency, currentRate)} />
+                  <Line type="monotone" dataKey="cost" stroke="#10b981" strokeWidth={2} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </ChartCard>
+
+            <ChartCard title={`Custo por agente (${currency})`}>
+              <ResponsiveContainer width="100%" height={280}>
+                <PieChart>
+                  <Pie data={byClient} dataKey="cost" nameKey="name" outerRadius={90} label={(d) => d.name}>
+                    {byClient.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                  </Pie>
+                  <Tooltip contentStyle={tooltipStyle} formatter={(v: any) => fmtMoney(Number(v), currency, currentRate)} />
+                </PieChart>
+              </ResponsiveContainer>
+            </ChartCard>
+
+            <ChartCard title={`Top 10 modelos por custo (${currency})`}>
+              <ResponsiveContainer width="100%" height={320}>
+                <BarChart data={byModel} layout="vertical">
+                  <CartesianGrid stroke="#262626" strokeDasharray="3 3" />
+                  <XAxis type="number" stroke="#a1a1aa" fontSize={11} />
+                  <YAxis dataKey="name" type="category" stroke="#a1a1aa" fontSize={10} width={140} />
+                  <Tooltip contentStyle={tooltipStyle} formatter={(v: any) => fmtMoney(Number(v), currency, currentRate)} />
+                  <Bar dataKey="cost" fill="#0566d9" radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartCard>
+
+            <ChartCard title="Sessões por dia">
+              <ResponsiveContainer width="100%" height={320}>
+                <BarChart data={byDay}>
+                  <CartesianGrid stroke="#262626" strokeDasharray="3 3" />
+                  <XAxis dataKey="date" stroke="#a1a1aa" fontSize={11} />
+                  <YAxis stroke="#a1a1aa" fontSize={11} />
+                  <Tooltip contentStyle={tooltipStyle} />
+                  <Bar dataKey="sessions" fill="#c487ff" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartCard>
+          </section>
+
+          {/* Table */}
+          <section className="bg-brand-surface border border-brand-border rounded-lg overflow-hidden">
+            <div className="p-4 border-b border-brand-border flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-brand-text">Sessões ({filtered.length})</h2>
+              <span className="text-xs text-brand-text-muted">Ordenado por mais recente</span>
+            </div>
+            <div className="overflow-x-auto max-h-[600px] overflow-y-auto no-scrollbar">
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-brand-surface border-b border-brand-border z-10">
+                  <tr className="text-left">
+                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-brand-text-muted">Quando</th>
+                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-brand-text-muted">Agente</th>
+                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-brand-text-muted">Workspace</th>
+                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-brand-text-muted">Modelo</th>
+                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-brand-text-muted text-right">Msgs</th>
+                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-brand-text-muted text-right">Tokens in</th>
+                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-brand-text-muted text-right">Tokens out</th>
+                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-brand-text-muted text-right">Custo</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-brand-border/50">
+                  {[...filtered]
+                    .sort((a, b) => b.last_active - a.last_active)
+                    .slice(0, 500)
+                    .map((s) => (
+                      <tr key={s.session_id} className="hover:bg-brand-border/20 transition-colors">
+                        <td className="px-4 py-2.5 text-brand-text-muted whitespace-nowrap">{fmtDateTime(s.last_active)}</td>
+                        <td className="px-4 py-2.5"><ClientBadge client={s.client} /></td>
+                        <td className="px-4 py-2.5 text-brand-text">{s.workspace_label}</td>
+                        <td className="px-4 py-2.5 font-mono text-xs text-brand-text-muted">{s.models_used.join(", ")}</td>
+                        <td className="px-4 py-2.5 text-right text-brand-text">{s.message_count}</td>
+                        <td className="px-4 py-2.5 text-right text-brand-text-muted">{fmt(s.total_input_tokens)}</td>
+                        <td className="px-4 py-2.5 text-right text-brand-text-muted">{fmt(s.total_output_tokens)}</td>
+                        <td className="px-4 py-2.5 text-right font-mono text-sm text-brand-primary">{fmtMoney(s.total_cost, currency, currentRate)}</td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+            {filtered.length > 500 && (
+              <div className="p-3 text-xs text-brand-text-muted text-center border-t border-brand-border">
+                Mostrando 500 de {filtered.length.toLocaleString()} sessões
+              </div>
+            )}
+          </section>
+        </div>
+      </main>
 
       {showPricingModal && (
         <PricingModal
@@ -469,30 +505,79 @@ export default function Page() {
           onClose={() => setShowPricingModal(false)}
           onSaved={() => {
             setShowPricingModal(false);
-            // Recarrega sessions pra aplicar o novo override
             fetch("/api/sessions", { cache: "no-store" })
               .then((r) => r.json())
               .then((d) => { setData(d); fetchUnmatched(); });
           }}
         />
       )}
-    </main>
+    </div>
+  );
+}
+
+// ============ Sub-components ============
+
+function Sidebar() {
+  const items = [
+    { icon: "dashboard", label: "Dashboard", active: true },
+    { icon: "workspaces", label: "Workspaces" },
+    { icon: "neurology", label: "Models" },
+    { icon: "support_agent", label: "Agents" },
+  ];
+  const bottomItems = [
+    { icon: "settings", label: "Settings" },
+    { icon: "logout", label: "Logout" },
+  ];
+  return (
+    <nav className="hidden md:flex flex-col h-screen w-64 bg-surface-container-low border-r border-outline-variant py-8 sticky top-0 shrink-0">
+      <div className="px-6 mb-8 flex items-center gap-3">
+        <div className="w-8 h-8 rounded-lg bg-brand-primary/20 flex items-center justify-center overflow-hidden shrink-0">
+          <span className="material-symbols-outlined text-brand-primary text-[18px]">analytics</span>
+        </div>
+        <div>
+          <h2 className="text-lg font-semibold text-on-surface">Usage</h2>
+          <p className="text-xs text-brand-text-muted mt-0.5 uppercase tracking-wider">Agent Analytics</p>
+        </div>
+      </div>
+      <ul className="flex flex-col gap-1 px-4 flex-grow">
+        {items.map((item) => (
+          <li key={item.label}>
+            <a className={`flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-colors cursor-pointer ${item.active ? "bg-secondary-container text-on-secondary-container" : "text-on-surface-variant hover:bg-surface-container-high"}`}>
+              <span className="material-symbols-outlined text-[18px]">{item.icon}</span>
+              {item.label}
+            </a>
+          </li>
+        ))}
+      </ul>
+      <div className="mt-auto px-4">
+        <ul className="flex flex-col gap-1">
+          {bottomItems.map((item) => (
+            <li key={item.label}>
+              <a className="flex items-center gap-3 px-3 py-2 text-on-surface-variant rounded-lg text-xs font-semibold uppercase tracking-wider hover:bg-surface-container-high transition-colors cursor-pointer">
+                <span className="material-symbols-outlined text-[18px]">{item.icon}</span>
+                {item.label}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </nav>
   );
 }
 
 function Kpi({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
-    <div className="bg-surface border border-border rounded-lg p-4">
-      <div className="text-xs text-zinc-500 uppercase tracking-wider mb-1">{label}</div>
-      <div className={"text-2xl font-bold " + (accent ? "text-emerald-400" : "text-white")}>{value}</div>
+    <div className={`bg-brand-surface border border-brand-border rounded-lg p-4 flex flex-col justify-between ${accent ? "ring-1 ring-brand-primary/20 bg-brand-primary/5" : ""}`}>
+      <span className="text-xs font-semibold uppercase tracking-wider text-brand-text-muted">{label}</span>
+      <span className={`text-2xl font-semibold mt-2 ${accent ? "text-brand-primary" : "text-brand-text"}`}>{value}</span>
     </div>
   );
 }
 
 function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="bg-surface border border-border rounded-lg p-4">
-      <h3 className="text-sm font-semibold text-zinc-300 mb-3">{title}</h3>
+    <div className="bg-brand-surface border border-brand-border rounded-lg p-4">
+      <h3 className="text-sm font-semibold text-brand-text mb-3">{title}</h3>
       {children}
     </div>
   );
@@ -500,17 +585,17 @@ function ChartCard({ title, children }: { title: string; children: React.ReactNo
 
 function ClientBadge({ client }: { client: string }) {
   const colors: Record<string, string> = {
-    pi: "bg-emerald-500/20 text-emerald-300",
-    claude: "bg-orange-500/20 text-orange-300",
-    codex: "bg-blue-500/20 text-blue-300",
-    droid: "bg-purple-500/20 text-purple-300",
-    gemini: "bg-cyan-500/20 text-cyan-300",
-    opencode: "bg-pink-500/20 text-pink-300",
-    amp: "bg-yellow-500/20 text-yellow-300",
-    kilo: "bg-red-500/20 text-red-300",
+    pi: "bg-emerald-950/40 text-emerald-400 border-emerald-800/50",
+    claude: "bg-orange-950/40 text-orange-400 border-orange-800/50",
+    codex: "bg-blue-950/40 text-blue-400 border-blue-800/50",
+    droid: "bg-purple-950/40 text-purple-400 border-purple-800/50",
+    gemini: "bg-cyan-950/40 text-cyan-400 border-cyan-800/50",
+    opencode: "bg-pink-950/40 text-pink-400 border-pink-800/50",
+    amp: "bg-yellow-950/40 text-yellow-400 border-yellow-800/50",
+    kilo: "bg-red-950/40 text-red-400 border-red-800/50",
   };
   return (
-    <span className={"px-2 py-0.5 rounded text-xs font-medium " + (colors[client] ?? "bg-zinc-700 text-zinc-300")}>
+    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${colors[client] ?? "bg-zinc-800 text-zinc-300 border-zinc-700"}`}>
       {client}
     </span>
   );
@@ -526,33 +611,29 @@ function Select({
   id: string;
 }) {
   return (
-    <div>
-      <label htmlFor={id} className="block text-xs text-zinc-500 mb-1">{label}</label>
-      <select
-        id={id}
-        name={id}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full bg-bg border border-border rounded px-2 py-2 text-sm text-white"
-      >
-        {options.map((opt) => {
-          const v = typeof opt === "string" ? opt : opt.value;
-          const l = typeof opt === "string" ? opt : opt.label;
-          return <option key={v} value={v}>{l}</option>;
-        })}
-      </select>
+    <div className="flex-grow">
+      <label htmlFor={id} className="block text-xs font-semibold uppercase tracking-wider text-brand-text-muted mb-1">{label}</label>
+      <div className="relative">
+        <select
+          id={id}
+          name={id}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full appearance-none bg-brand-bg border border-brand-border text-brand-text text-sm rounded-md pl-3 pr-8 py-2 focus:outline-none focus:border-brand-border-hover focus:ring-1 focus:ring-brand-border-hover cursor-pointer hover:border-brand-border-hover transition-colors"
+        >
+          {options.map((opt) => {
+            const v = typeof opt === "string" ? opt : opt.value;
+            const l = typeof opt === "string" ? opt : opt.label;
+            return <option key={v} value={v}>{l}</option>;
+          })}
+        </select>
+        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-brand-text-muted">
+          <span className="material-symbols-outlined text-[16px]">expand_more</span>
+        </div>
+      </div>
     </div>
   );
 }
-
-type Unmatched = {
-  model: string;
-  sessions: number;
-  totalInput: number;
-  totalOutput: number;
-  totalTokens: number;
-  exampleSessionTitle: string;
-};
 
 function PricingModal({
   unmatched,
@@ -563,7 +644,6 @@ function PricingModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  // Estado: modelo → { input, output }
   const [prices, setPrices] = useState<Record<string, { input: string; output: string }>>(() => {
     const init: Record<string, { input: string; output: string }> = {};
     for (const u of unmatched) {
@@ -614,21 +694,21 @@ function PricingModal({
       onClick={onClose}
     >
       <div
-        className="bg-surface border border-border rounded-lg w-full max-w-3xl max-h-[85vh] flex flex-col"
+        className="bg-surface-container-high border border-outline-variant rounded-lg w-full max-w-3xl max-h-[85vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="p-4 border-b border-border flex items-center justify-between">
+        <div className="p-4 border-b border-brand-border flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-white">
+            <h2 className="text-lg font-semibold text-brand-text">
               Modelos sem preço ({unmatched.length})
             </h2>
-            <p className="text-xs text-zinc-500 mt-0.5">
+            <p className="text-xs text-brand-text-muted mt-0.5">
               Defina o preço em USD por <strong>1 milhão</strong> de tokens. Use 0 para modelos locais/free.
             </p>
           </div>
           <button
             onClick={onClose}
-            className="text-zinc-500 hover:text-white text-xl px-2"
+            className="text-brand-text-muted hover:text-brand-text text-xl px-2"
             aria-label="Fechar"
           >
             ×
@@ -637,7 +717,7 @@ function PricingModal({
 
         <div className="flex-1 overflow-y-auto p-4">
           {unmatched.length === 0 ? (
-            <div className="text-zinc-500 text-sm text-center py-8">
+            <div className="text-brand-text-muted text-sm text-center py-8">
               Nenhum modelo sem preço detectado. 🎉
             </div>
           ) : (
@@ -645,13 +725,13 @@ function PricingModal({
               {unmatched.map((u) => (
                 <div
                   key={u.model}
-                  className="bg-bg border border-border rounded p-3 flex items-center gap-3"
+                  className="bg-brand-bg border border-brand-border rounded p-3 flex items-center gap-3"
                 >
                   <div className="flex-1 min-w-0">
-                    <div className="font-mono text-sm text-white truncate" title={u.model}>
+                    <div className="font-mono text-sm text-brand-text truncate" title={u.model}>
                       {u.model}
                     </div>
-                    <div className="text-xs text-zinc-500 mt-0.5">
+                    <div className="text-xs text-brand-text-muted mt-0.5">
                       {u.sessions} sessão(ões) · {fmt(u.totalInput)} in · {fmt(u.totalOutput)} out
                     </div>
                   </div>
@@ -659,7 +739,7 @@ function PricingModal({
                     <div>
                       <label
                         htmlFor={`in-${u.model}`}
-                        className="block text-[10px] text-zinc-500 mb-0.5"
+                        className="block text-[10px] text-brand-text-muted mb-0.5"
                       >
                         Input $/M
                       </label>
@@ -670,13 +750,13 @@ function PricingModal({
                         min="0"
                         value={prices[u.model]?.input ?? "0"}
                         onChange={(e) => setPrice(u.model, "input", e.target.value)}
-                        className="w-24 bg-surface border border-border rounded px-2 py-1 text-sm text-white"
+                        className="w-24 bg-brand-surface border border-brand-border rounded px-2 py-1 text-sm text-brand-text"
                       />
                     </div>
                     <div>
                       <label
                         htmlFor={`out-${u.model}`}
-                        className="block text-[10px] text-zinc-500 mb-0.5"
+                        className="block text-[10px] text-brand-text-muted mb-0.5"
                       >
                         Output $/M
                       </label>
@@ -687,7 +767,7 @@ function PricingModal({
                         min="0"
                         value={prices[u.model]?.output ?? "0"}
                         onChange={(e) => setPrice(u.model, "output", e.target.value)}
-                        className="w-24 bg-surface border border-border rounded px-2 py-1 text-sm text-white"
+                        className="w-24 bg-brand-surface border border-brand-border rounded px-2 py-1 text-sm text-brand-text"
                       />
                     </div>
                   </div>
@@ -698,26 +778,26 @@ function PricingModal({
         </div>
 
         {err && (
-          <div className="px-4 py-2 bg-red-900/30 border-t border-red-900/50 text-red-300 text-sm">
+          <div className="px-4 py-2 bg-red-950/30 border-t border-red-900/50 text-red-400 text-sm">
             {err}
           </div>
         )}
 
-        <div className="p-4 border-t border-border flex items-center justify-between">
-          <span className="text-xs text-zinc-500">
-            Salvo em <code className="text-zinc-400">data/custom-pricing.json</code>
+        <div className="p-4 border-t border-brand-border flex items-center justify-between">
+          <span className="text-xs text-brand-text-muted">
+            Salvo em <code className="text-brand-text-muted/80">data/custom-pricing.json</code>
           </span>
           <div className="flex gap-2">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-sm text-zinc-400 hover:text-white"
+              className="px-4 py-2 text-sm text-brand-text-muted hover:text-brand-text"
             >
               Cancelar
             </button>
             <button
               onClick={save}
               disabled={saving || unmatched.length === 0}
-              className="bg-emerald-600 hover:bg-emerald-500 disabled:bg-zinc-700 disabled:text-zinc-500 text-white px-4 py-2 rounded text-sm font-medium"
+              className="bg-brand-primary text-black hover:bg-emerald-400 disabled:bg-zinc-700 disabled:text-zinc-500 px-4 py-2 rounded text-sm font-medium transition-colors"
             >
               {saving ? "Salvando..." : "Salvar"}
             </button>
