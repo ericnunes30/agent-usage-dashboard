@@ -59,10 +59,19 @@ export async function GET() {
 
     const models = Array.from(acc.entries())
       .map(([name, v]) => {
+        // Status baseado APENAS no LiteLLM (fonte da verdade).
+        // "Sem preço" é uma verdade objetiva: se o LiteLLM não tem, está sem preço,
+        // mesmo que o usuário tenha colocado um override $0/$0 (placeholder).
+        // "Custom" só conta quando há override SOBRE um modelo que TEM preço LiteLLM.
         let status: "custom" | "unmatched" | "priced";
-        if (customKeys.has(name)) status = "custom";
-        else if (unmatchedSet.has(name)) status = "unmatched";
-        else status = "priced";
+        const hasCustom = customKeys.has(name);
+        if (unmatchedSet.has(name)) {
+          status = "unmatched";
+        } else if (hasCustom) {
+          status = "custom";
+        } else {
+          status = "priced";
+        }
 
         const custom = customPricing[name];
         return {

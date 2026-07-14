@@ -46,7 +46,7 @@ function fmtCost(usd: number): string {
   }).format(usd);
 }
 
-function statusBadge(status: ModelInfo["status"]) {
+function statusBadge(status: ModelInfo["status"], hasCustom: boolean) {
   if (status === "custom") {
     return (
       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider bg-brand-primary/15 text-brand-primary border border-brand-primary/30">
@@ -57,10 +57,17 @@ function statusBadge(status: ModelInfo["status"]) {
   }
   if (status === "unmatched") {
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider bg-amber-950/40 text-amber-400 border border-amber-800/50">
-        <span className="material-symbols-outlined text-[12px]">warning</span>
-        Sem preço
-      </span>
+      <div className="flex flex-col gap-1 items-start">
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider bg-amber-950/40 text-amber-400 border border-amber-800/50">
+          <span className="material-symbols-outlined text-[12px]">warning</span>
+          Sem preço
+        </span>
+        {hasCustom && (
+          <span className="text-[9px] text-brand-text-muted/60" title="Você tem um override $0/$0 mas ainda não preencheu o preço real">
+            + custom $0/0
+          </span>
+        )}
+      </div>
     );
   }
   return (
@@ -350,7 +357,7 @@ export default function ModelsPage() {
                             <td className="px-3 py-2 font-mono text-xs text-brand-text">
                               {m.name}
                             </td>
-                            <td className="px-3 py-2">{statusBadge(m.status)}</td>
+                            <td className="px-3 py-2">{statusBadge(m.status, m.customPrice !== null)}</td>
                             <td className="px-3 py-2 text-right tabular-nums text-brand-text-muted">
                               {m.sessions.toLocaleString("pt-BR")}
                             </td>
@@ -537,15 +544,15 @@ export default function ModelsPage() {
           {/* Legend */}
           <div className="flex flex-wrap gap-4 text-xs text-brand-text-muted">
             <div className="flex items-center gap-2">
-              {statusBadge("priced")}
+              {statusBadge("priced", false)}
               <span>modelo tem preço no LiteLLM (tokscale calcula)</span>
             </div>
             <div className="flex items-center gap-2">
-              {statusBadge("unmatched")}
+              {statusBadge("unmatched", true)}
               <span>modelo sem preço no LiteLLM (custo zerado)</span>
             </div>
             <div className="flex items-center gap-2">
-              {statusBadge("custom")}
+              {statusBadge("custom", true)}
               <span>preço definido manualmente em custom-pricing.json</span>
             </div>
           </div>
