@@ -59,21 +59,26 @@ export async function GET() {
 
     const models = Array.from(acc.entries())
       .map(([name, v]) => {
-        // Status baseado APENAS no LiteLLM (fonte da verdade).
-        // "Sem preço" é uma verdade objetiva: se o LiteLLM não tem, está sem preço,
-        // mesmo que o usuário tenha colocado um override $0/$0 (placeholder).
-        // "Custom" só conta quando há override SOBRE um modelo que TEM preço LiteLLM.
+        // Status baseado em QUEM FORNECE O PREÇO REAL.
+        // - "unmatched" (Sem preço) = LiteLLM não tem E custom é 0/0 (sem preço real)
+        // - "custom" (Custom)      = usuário definiu inputPerMillion ou outputPerMillion > 0
+        // - "priced" (Com preço)   = LiteLLM tem preço (tokscale calcula)
+        // Adicionar um preço real em custom-pricing.json move o modelo
+        // de "Sem preço" para "Custom".
+        const custom = customPricing[name];
+        const hasRealCustom =
+          custom !== undefined &&
+          (custom.inputPerMillion > 0 || custom.outputPerMillion > 0);
+
         let status: "custom" | "unmatched" | "priced";
-        const hasCustom = customKeys.has(name);
-        if (unmatchedSet.has(name)) {
-          status = "unmatched";
-        } else if (hasCustom) {
+        if (hasRealCustom) {
           status = "custom";
+        } else if (unmatchedSet.has(name)) {
+          status = "unmatched";
         } else {
           status = "priced";
         }
 
-        const custom = customPricing[name];
         return {
           name,
           sessions: v.sessions,
