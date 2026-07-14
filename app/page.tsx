@@ -235,17 +235,25 @@ export default function Page() {
 
   // Por modelo (top 10)
   const byModel = useMemo(() => {
-    const m = new Map<string, { cost: number; sessions: number }>();
+    const m = new Map<string, { cost: number; sessions: number; requests: number }>();
     for (const s of filtered) {
       for (const model of s.models_used) {
-        const cur = m.get(model) ?? { cost: 0, sessions: 0 };
+        const cur = m.get(model) ?? { cost: 0, sessions: 0, requests: 0 };
         cur.cost += s.total_cost / s.models_used.length;
         cur.sessions += 1;
+        // message_count = total de turnos (input + output) na sessão.
+        // Em multi-modelo, a parte daquele modelo = message_count / N.
+        cur.requests += (s.message_count ?? 0) / s.models_used.length;
         m.set(model, cur);
       }
     }
     return Array.from(m.entries())
-      .map(([name, v]) => ({ name, ...v }))
+      .map(([name, v]) => ({
+        name: `${name} (${Math.round(v.requests)} req)`,
+        cost: v.cost,
+        sessions: v.sessions,
+        requests: Math.round(v.requests),
+      }))
       .sort((a, b) => b.cost - a.cost)
       .slice(0, 10);
   }, [filtered]);
@@ -435,8 +443,16 @@ export default function Page() {
                 <BarChart data={byModel} layout="vertical">
                   <CartesianGrid stroke="#262626" strokeDasharray="3 3" />
                   <XAxis type="number" stroke="#a1a1aa" fontSize={11} />
-                  <YAxis dataKey="name" type="category" stroke="#a1a1aa" fontSize={10} width={140} />
-                  <Tooltip contentStyle={tooltipStyle} formatter={(v: any) => fmtMoney(Number(v), currency, currentRate)} />
+                  <YAxis dataKey="name" type="category" stroke="#a1a1aa" fontSize={10} width={200} />
+                  <Tooltip
+                    contentStyle={tooltipStyle}
+                    formatter={(v: any, k: any) => {
+                      if (k === "cost") return [fmtMoney(Number(v), currency, currentRate), "Custo"];
+                      if (k === "sessions") return [Number(v).toLocaleString("pt-BR"), "Sessões"];
+                      if (k === "requests") return [Number(v).toLocaleString("pt-BR"), "Requisições"];
+                      return [v, k];
+                    }}
+                  />
                   <Bar dataKey="cost" fill="#0566d9" radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ResponsiveContainer>

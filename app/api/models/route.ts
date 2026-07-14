@@ -99,12 +99,14 @@ export async function GET() {
     const litellmCache = new Map<string, { inputPerMillion: number; outputPerMillion: number } | null>();
 
     // Agrega por modelo. Cada sessão pode ter múltiplos modelos (models_used).
-    // Quando há múltiplos, distribuímos os tokens/custo igualitariamente.
+    // Quando há múltiplos, distribuímos os tokens/custo/requests igualitariamente.
+    // Requests ≈ message_count (cada turno da conversa = 1 chamada API).
     const acc = new Map<string, {
       sessions: number;
       totalInput: number;
       totalOutput: number;
       totalCost: number;
+      totalRequests: number;
     }>();
 
     for (const s of sessions) {
@@ -112,11 +114,20 @@ export async function GET() {
       if (models.length === 0) continue;
       const share = 1 / models.length;
       for (const m of models) {
-        const cur = acc.get(m) ?? { sessions: 0, totalInput: 0, totalOutput: 0, totalCost: 0 };
+        const cur = acc.get(m) ?? {
+          sessions: 0,
+          totalInput: 0,
+          totalOutput: 0,
+          totalCost: 0,
+          totalRequests: 0,
+        };
         cur.sessions += 1;
         cur.totalInput += s.total_input_tokens * share;
         cur.totalOutput += s.total_output_tokens * share;
         cur.totalCost += (s.total_cost ?? 0) * share;
+        // message_count é por sessão inteira. Em multi-modelo, a parte
+        // daquele modelo ≈ message_count / models_used.length
+        cur.totalRequests += (s.message_count ?? 0) * share;
         acc.set(m, cur);
       }
     }
@@ -150,6 +161,7 @@ export async function GET() {
         return {
           name,
           sessions: v.sessions,
+          requests: Math.round(v.totalRequests),
           totalInput: Math.round(v.totalInput),
           totalOutput: Math.round(v.totalOutput),
           totalCost: Number(v.totalCost.toFixed(4)),

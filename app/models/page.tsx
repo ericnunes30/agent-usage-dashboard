@@ -370,6 +370,12 @@ export default function ModelsPage() {
                       <th className="text-right px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-brand-text-muted">
                         Sess.
                       </th>
+                      <th
+                        className="text-right px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-brand-text-muted"
+                        title="Requisições (chamadas API) — estimado por message_count ÷ modelos na sessão"
+                      >
+                        Reqs.
+                      </th>
                       <th className="text-right px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-brand-text-muted">
                         Custo
                       </th>
@@ -417,6 +423,9 @@ export default function ModelsPage() {
                             <td className="px-3 py-2">{statusBadge(m.status, m.customPrice !== null)}</td>
                             <td className="px-3 py-2 text-right tabular-nums text-brand-text-muted">
                               {m.sessions.toLocaleString("pt-BR")}
+                            </td>
+                            <td className="px-3 py-2 text-right tabular-nums text-brand-text-muted">
+                              {fmt(m.requests ?? 0)}
                             </td>
                             <td className="px-3 py-2 text-right tabular-nums text-brand-text">
                               {fmtCost(m.totalCost)}
