@@ -16,8 +16,23 @@ type UnmatchedModel = {
 
 export async function GET() {
   try {
-    const text = await readFile(UNMATCHED_PATH, "utf-8");
-    const data: UnmatchedModel[] = JSON.parse(text);
+    const [unmatchedText, customText] = await Promise.all([
+      readFile(UNMATCHED_PATH, "utf-8"),
+      readFile(CUSTOM_PRICING_PATH, "utf-8").catch(() => "{}"),
+    ]);
+    const allUnmatched: UnmatchedModel[] = JSON.parse(unmatchedText);
+    const custom: Record<string, { inputPerMillion: number; outputPerMillion: number }> = JSON.parse(customText);
+
+    // Filtra: um modelo deixa de ser "sem preço" quando o usuário define
+    // um override com input>0 ou output>0 em custom-pricing.json.
+    // Sem isso, o dashboard principal e a página /models mostrariam
+    // contagens divergentes (mesma lógica aplicada em /api/models).
+    const data = allUnmatched.filter((u) => {
+      const cp = custom[u.model];
+      if (!cp) return true;
+      return cp.inputPerMillion <= 0 && cp.outputPerMillion <= 0;
+    });
+
     return NextResponse.json(data);
   } catch (err: any) {
     if (err.code === "ENOENT") {
