@@ -18,6 +18,16 @@ type ModelInfo = {
   } | null;
 };
 
+type CatalogEntry = {
+  id: string;
+  inputPerMillion: number;
+  outputPerMillion: number;
+  maxInputTokens?: number;
+  maxOutputTokens?: number;
+  provider?: string;
+  mode?: string;
+};
+
 type FilterStatus = "all" | "priced" | "unmatched" | "custom";
 
 function fmt(n: number): string {
@@ -26,6 +36,7 @@ function fmt(n: number): string {
   if (n >= 1_000_000) return formatted + " mi";
   return formatted;
 }
+
 function fmtCost(usd: number): string {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -33,6 +44,31 @@ function fmtCost(usd: number): string {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(usd);
+}
+
+function statusBadge(status: ModelInfo["status"]) {
+  if (status === "custom") {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider bg-brand-primary/15 text-brand-primary border border-brand-primary/30">
+        <span className="material-symbols-outlined text-[12px]">star</span>
+        Custom
+      </span>
+    );
+  }
+  if (status === "unmatched") {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider bg-amber-950/40 text-amber-400 border border-amber-800/50">
+        <span className="material-symbols-outlined text-[12px]">warning</span>
+        Sem preço
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider bg-emerald-950/40 text-emerald-400 border border-emerald-800/50">
+      <span className="material-symbols-outlined text-[12px]">check_circle</span>
+      Com preço
+    </span>
+  );
 }
 
 export default function ModelsPage() {
@@ -46,6 +82,15 @@ export default function ModelsPage() {
   const [editOutput, setEditOutput] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
 
+  // Catálogo LiteLLM
+  const [catalogQuery, setCatalogQuery] = useState("");
+  const [catalogResults, setCatalogResults] = useState<CatalogEntry[]>([]);
+  const [catalogTotal, setCatalogTotal] = useState(0);
+  const [catalogMatched, setCatalogMatched] = useState(0);
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [catalogLoaded, setCatalogLoaded] = useState(false);
+
   async function load() {
     setLoading(true);
     try {
@@ -58,6 +103,42 @@ export default function ModelsPage() {
       setLoading(false);
     }
   }
+
+  async function searchCatalog(q: string) {
+    setCatalogQuery(q);
+    setCatalogLoading(true);
+    setCatalogError(null);
+    try {
+      const res = await fetch(
+        `/api/catalog?q=${encodeURIComponent(q)}&limit=100`,
+        { cache: "no-store" }
+      );
+      if (!res.ok) throw new Error((await res.json()).error ?? "Erro no catálogo");
+      const data = await res.json();
+      setCatalogResults(data.results ?? []);
+      setCatalogTotal(data.total ?? 0);
+      setCatalogMatched(data.matched ?? 0);
+      setCatalogLoaded(true);
+    } catch (e: any) {
+      setCatalogError(e.message);
+    } finally {
+      setCatalogLoading(false);
+    }
+  }
+
+  // Carrega o catálogo inicial vazio (top N por nome)
+  useEffect(() => {
+    searchCatalog("");
+  }, []);
+
+  // Debounce de busca no catálogo
+  useEffect(() => {
+    const id = setTimeout(() => {
+      if (catalogLoaded) searchCatalog(catalogQuery);
+    }, 250);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [catalogQuery]);
 
   useEffect(() => {
     load();
@@ -87,12 +168,19 @@ export default function ModelsPage() {
     setEditing(m.name);
     setEditInput(String(m.customPrice?.inputPerMillion ?? ""));
     setEditOutput(String(m.customPrice?.outputPerMillion ?? ""));
+    // Pré-preenche o catálogo com o nome do modelo
+    searchCatalog(m.name);
   }
 
   function cancelEdit() {
     setEditing(null);
     setEditInput("");
     setEditOutput("");
+  }
+
+  function applyFromCatalog(c: CatalogEntry) {
+    setEditInput(String(c.inputPerMillion));
+    setEditOutput(String(c.outputPerMillion));
   }
 
   async function saveEdit(modelName: string) {
@@ -122,31 +210,6 @@ export default function ModelsPage() {
     } finally {
       setSaving(false);
     }
-  }
-
-  function statusBadge(status: ModelInfo["status"]) {
-    if (status === "custom") {
-      return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider bg-brand-primary/15 text-brand-primary border border-brand-primary/30">
-          <span className="material-symbols-outlined text-[12px]">star</span>
-          Custom
-        </span>
-      );
-    }
-    if (status === "unmatched") {
-      return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider bg-amber-950/40 text-amber-400 border border-amber-800/50">
-          <span className="material-symbols-outlined text-[12px]">warning</span>
-          Sem preço
-        </span>
-      );
-    }
-    return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider bg-emerald-950/40 text-emerald-400 border border-emerald-800/50">
-        <span className="material-symbols-outlined text-[12px]">check_circle</span>
-        Com preço
-      </span>
-    );
   }
 
   return (
@@ -221,82 +284,80 @@ export default function ModelsPage() {
             </div>
           )}
 
-          {/* Table */}
-          <div className="bg-brand-surface border border-brand-border rounded-lg overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-brand-border bg-surface-container-low">
-                    <th className="text-left px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-brand-text-muted">
-                      Modelo
-                    </th>
-                    <th className="text-left px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-brand-text-muted">
-                      Status
-                    </th>
-                    <th className="text-right px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-brand-text-muted">
-                      Sessões
-                    </th>
-                    <th className="text-right px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-brand-text-muted">
-                      Tokens In
-                    </th>
-                    <th className="text-right px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-brand-text-muted">
-                      Tokens Out
-                    </th>
-                    <th className="text-right px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-brand-text-muted">
-                      Custo
-                    </th>
-                    <th className="text-right px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-brand-text-muted">
-                      $ In/1M
-                    </th>
-                    <th className="text-right px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-brand-text-muted">
-                      $ Out/1M
-                    </th>
-                    <th className="text-right px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-brand-text-muted">
-                      Ações
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {loading && (
-                    <tr>
-                      <td colSpan={9} className="px-4 py-8 text-center text-brand-text-muted">
-                        Carregando modelos...
-                      </td>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Tabela de Modelos */}
+            <div className="lg:col-span-2 bg-brand-surface border border-brand-border rounded-lg overflow-hidden">
+              <div className="px-4 py-3 border-b border-brand-border flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-brand-text">Seus modelos</h3>
+                <span className="text-[10px] uppercase tracking-wider text-brand-text-muted">
+                  {filtered.length} de {counts.all}
+                </span>
+              </div>
+              <div className="overflow-x-auto max-h-[calc(100vh-280px)] overflow-y-auto">
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-surface-container-low z-10">
+                    <tr className="border-b border-brand-border">
+                      <th className="text-left px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-brand-text-muted">
+                        Modelo
+                      </th>
+                      <th className="text-left px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-brand-text-muted">
+                        Status
+                      </th>
+                      <th className="text-right px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-brand-text-muted">
+                        Sess.
+                      </th>
+                      <th className="text-right px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-brand-text-muted">
+                        Custo
+                      </th>
+                      <th className="text-right px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-brand-text-muted">
+                        $ In/1M
+                      </th>
+                      <th className="text-right px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-brand-text-muted">
+                        $ Out/1M
+                      </th>
+                      <th className="text-right px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-brand-text-muted">
+                        Ação
+                      </th>
                     </tr>
-                  )}
-                  {!loading && filtered.length === 0 && (
-                    <tr>
-                      <td colSpan={9} className="px-4 py-8 text-center text-brand-text-muted">
-                        Nenhum modelo encontrado.
-                      </td>
-                    </tr>
-                  )}
-                  {!loading &&
-                    filtered.map((m) => {
-                      const isEditing = editing === m.name;
-                      return (
-                        <>
+                  </thead>
+                  <tbody>
+                    {loading && (
+                      <tr>
+                        <td colSpan={7} className="px-4 py-6 text-center text-brand-text-muted">
+                          Carregando modelos...
+                        </td>
+                      </tr>
+                    )}
+                    {!loading && filtered.length === 0 && (
+                      <tr>
+                        <td colSpan={7} className="px-4 py-6 text-center text-brand-text-muted">
+                          Nenhum modelo encontrado.
+                        </td>
+                      </tr>
+                    )}
+                    {!loading &&
+                      filtered.map((m) => {
+                        const isEditing = editing === m.name;
+                        return (
                           <tr
                             key={m.name}
-                            className="border-b border-brand-border/50 hover:bg-surface-container-low/40 transition-colors"
+                            className={`border-b border-brand-border/50 transition-colors ${
+                              isEditing
+                                ? "bg-secondary-container/30"
+                                : "hover:bg-surface-container-low/40"
+                            }`}
                           >
-                            <td className="px-4 py-3 font-mono text-xs text-brand-text">
+                            <td className="px-3 py-2 font-mono text-xs text-brand-text">
                               {m.name}
                             </td>
-                            <td className="px-4 py-3">{statusBadge(m.status)}</td>
-                            <td className="px-4 py-3 text-right tabular-nums text-brand-text-muted">
+                            <td className="px-3 py-2">{statusBadge(m.status)}</td>
+                            <td className="px-3 py-2 text-right tabular-nums text-brand-text-muted">
                               {m.sessions.toLocaleString("pt-BR")}
                             </td>
-                            <td className="px-4 py-3 text-right tabular-nums text-brand-text-muted">
-                              {fmt(m.totalInput)}
-                            </td>
-                            <td className="px-4 py-3 text-right tabular-nums text-brand-text-muted">
-                              {fmt(m.totalOutput)}
-                            </td>
-                            <td className="px-4 py-3 text-right tabular-nums text-brand-text">
+                            <td className="px-3 py-2 text-right tabular-nums text-brand-text">
                               {fmtCost(m.totalCost)}
                             </td>
-                            <td className="px-4 py-3 text-right tabular-nums text-brand-text">
+                            <td className="px-3 py-2 text-right tabular-nums text-brand-text">
                               {isEditing ? (
                                 <input
                                   type="number"
@@ -316,7 +377,7 @@ export default function ModelsPage() {
                                 <span className="text-brand-text-muted/40">—</span>
                               )}
                             </td>
-                            <td className="px-4 py-3 text-right tabular-nums text-brand-text">
+                            <td className="px-3 py-2 text-right tabular-nums text-brand-text">
                               {isEditing ? (
                                 <input
                                   type="number"
@@ -336,7 +397,7 @@ export default function ModelsPage() {
                                 <span className="text-brand-text-muted/40">—</span>
                               )}
                             </td>
-                            <td className="px-4 py-3 text-right">
+                            <td className="px-3 py-2 text-right">
                               {isEditing ? (
                                 <div className="flex gap-1 justify-end">
                                   <button
@@ -365,11 +426,111 @@ export default function ModelsPage() {
                               )}
                             </td>
                           </tr>
-                        </>
-                      );
-                    })}
-                </tbody>
-              </table>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Painel Catálogo LiteLLM */}
+            <div className="bg-brand-surface border border-brand-border rounded-lg overflow-hidden flex flex-col">
+              <div className="px-4 py-3 border-b border-brand-border flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-brand-text flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[16px] text-brand-primary">
+                    library_books
+                  </span>
+                  Catálogo LiteLLM
+                </h3>
+                {catalogTotal > 0 && (
+                  <span className="text-[10px] uppercase tracking-wider text-brand-text-muted">
+                    {catalogMatched.toLocaleString("pt-BR")} de {catalogTotal.toLocaleString("pt-BR")}
+                  </span>
+                )}
+              </div>
+
+              {/* Search bar do catálogo */}
+              <div className="p-3 border-b border-brand-border">
+                <div className="relative">
+                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-brand-text-muted text-[18px]">
+                    travel_explore
+                  </span>
+                  <input
+                    type="text"
+                    value={catalogQuery}
+                    onChange={(e) => setCatalogQuery(e.target.value)}
+                    placeholder="Buscar no catálogo (ex: glm, gpt-4, claude)..."
+                    className="w-full pl-10 pr-3 py-2 bg-brand-bg border border-brand-border rounded-lg text-sm text-brand-text placeholder:text-brand-text-muted focus:outline-none focus:border-brand-primary/50"
+                  />
+                </div>
+                {editing && (
+                  <p className="text-[10px] text-brand-primary mt-2 uppercase tracking-wider">
+                    Editando: <span className="font-mono normal-case">{editing}</span> · clique em um modelo para preencher
+                  </p>
+                )}
+              </div>
+
+              {/* Lista do catálogo */}
+              <div className="overflow-y-auto flex-grow max-h-[calc(100vh-380px)]">
+                {catalogError && (
+                  <div className="p-3 text-xs text-red-400">{catalogError}</div>
+                )}
+                {catalogLoading && (
+                  <div className="p-4 text-center text-brand-text-muted text-xs">
+                    Carregando catálogo...
+                  </div>
+                )}
+                {!catalogLoading && !catalogError && catalogResults.length === 0 && (
+                  <div className="p-4 text-center text-brand-text-muted text-xs">
+                    Nenhum modelo encontrado no catálogo.
+                  </div>
+                )}
+                {!catalogLoading &&
+                  catalogResults.map((c) => (
+                    <button
+                      key={c.id}
+                      onClick={() => applyFromCatalog(c)}
+                      disabled={!editing}
+                      className="w-full text-left px-3 py-2 border-b border-brand-border/50 hover:bg-secondary-container/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors group"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-mono text-xs text-brand-text truncate group-hover:text-brand-primary">
+                          {c.id}
+                        </span>
+                        {c.provider && (
+                          <span className="text-[9px] uppercase tracking-wider text-brand-text-muted shrink-0">
+                            {c.provider}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3 mt-1 text-[10px] text-brand-text-muted">
+                        <span>
+                          <span className="text-on-surface-variant">in</span>{" "}
+                          <span className="text-brand-text tabular-nums">
+                            ${c.inputPerMillion.toFixed(4)}
+                          </span>
+                        </span>
+                        <span>
+                          <span className="text-on-surface-variant">out</span>{" "}
+                          <span className="text-brand-text tabular-nums">
+                            ${c.outputPerMillion.toFixed(4)}
+                          </span>
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+              </div>
+
+              <div className="px-3 py-2 border-t border-brand-border text-[10px] text-brand-text-muted">
+                Fonte: <a
+                  href="https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-brand-primary hover:underline"
+                >
+                  BerriAI/litellm
+                </a> · cache 1h
+              </div>
             </div>
           </div>
 
