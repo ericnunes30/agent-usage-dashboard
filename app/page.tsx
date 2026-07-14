@@ -64,9 +64,18 @@ const withAll = (items: string[]) => [ALL_OPT, ...items.map((v) => ({ value: v, 
 // ============ Helpers ============
 
 function fmt(n: number): string {
-  if (n >= 1_000_000) return (n / 1_000_000).toFixed(2) + "M";
-  if (n >= 1_000) return (n / 1_000).toFixed(1) + "k";
-  return n.toString();
+  // Formato brasileiro: "bi" (bilhão), "mi" (milhão), "mil" (milhar)
+  // Usa vírgula como separador decimal (pt-BR) e sem agrupamento de milhar
+  if (n >= 1_000_000_000) {
+    return new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: false }).format(n / 1_000_000_000) + " bi";
+  }
+  if (n >= 1_000_000) {
+    return new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: false }).format(n / 1_000_000) + " mi";
+  }
+  if (n >= 1_000) {
+    return new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1, useGrouping: false }).format(n / 1_000) + " mil";
+  }
+  return new Intl.NumberFormat("pt-BR").format(n);
 }
 
 function fmtMoney(n: number, currency: string, rate: number): string {
