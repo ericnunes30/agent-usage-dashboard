@@ -3,6 +3,24 @@
 import { useEffect, useMemo, useState } from "react";
 import Sidebar from "../components/Sidebar";
 
+/**
+ * Formata um preço USD de forma inteligente por magnitude:
+ * - ≥ $1: 2 casas decimais (ex: $1.20, $4.00)
+ * - $0.01 - $0.99: 4 casas decimais (ex: $0.9500, $0.0001)
+ * - < $0.01: 6 casas decimais (ex: $0.000123)
+ * Sempre usa ponto como separador decimal (formato US para preço unitário).
+ */
+function formatPrice(n: number): string {
+  if (!isFinite(n) || isNaN(n)) return "$0";
+  if (n === 0) return "$0.00";
+  const abs = Math.abs(n);
+  let decimals: number;
+  if (abs >= 1) decimals = 2;
+  else if (abs >= 0.01) decimals = 4;
+  else decimals = 6;
+  return `$${n.toFixed(decimals)}`;
+}
+
 type ModelInfo = {
   name: string;
   sessions: number;
@@ -166,8 +184,14 @@ export default function ModelsPage() {
 
   function startEdit(m: ModelInfo) {
     setEditing(m.name);
-    setEditInput(String(m.customPrice?.inputPerMillion ?? ""));
-    setEditOutput(String(m.customPrice?.outputPerMillion ?? ""));
+    // Mostra o valor sem zeros trailing (1.50 não 1.5000, 0.95 não 0.9500).
+    const fmtEdit = (v: number | undefined) => {
+      if (v === undefined || v === null || isNaN(v)) return "";
+      if (v === 0) return "0";
+      return String(parseFloat(v.toFixed(4)));
+    };
+    setEditInput(fmtEdit(m.customPrice?.inputPerMillion));
+    setEditOutput(fmtEdit(m.customPrice?.outputPerMillion));
     // Pré-preenche o catálogo com o nome do modelo
     searchCatalog(m.name);
   }
@@ -361,14 +385,14 @@ export default function ModelsPage() {
                               {isEditing ? (
                                 <input
                                   type="number"
-                                  step="0.0001"
+                                  step="0.01"
                                   min="0"
                                   value={editInput}
                                   onChange={(e) => setEditInput(e.target.value)}
                                   className="w-20 px-2 py-1 bg-brand-bg border border-brand-border rounded text-right text-xs text-brand-text focus:outline-none focus:border-brand-primary/50"
                                 />
                               ) : m.customPrice ? (
-                                `$${m.customPrice.inputPerMillion.toFixed(4)}`
+                                formatPrice(m.customPrice.inputPerMillion)
                               ) : m.status === "priced" ? (
                                 <span className="text-brand-text-muted/60 text-xs">
                                   LiteLLM
@@ -381,14 +405,14 @@ export default function ModelsPage() {
                               {isEditing ? (
                                 <input
                                   type="number"
-                                  step="0.0001"
+                                  step="0.01"
                                   min="0"
                                   value={editOutput}
                                   onChange={(e) => setEditOutput(e.target.value)}
                                   className="w-20 px-2 py-1 bg-brand-bg border border-brand-border rounded text-right text-xs text-brand-text focus:outline-none focus:border-brand-primary/50"
                                 />
                               ) : m.customPrice ? (
-                                `$${m.customPrice.outputPerMillion.toFixed(4)}`
+                                formatPrice(m.customPrice.outputPerMillion)
                               ) : m.status === "priced" ? (
                                 <span className="text-brand-text-muted/60 text-xs">
                                   LiteLLM
@@ -507,13 +531,13 @@ export default function ModelsPage() {
                         <span>
                           <span className="text-on-surface-variant">in</span>{" "}
                           <span className="text-brand-text tabular-nums">
-                            ${c.inputPerMillion.toFixed(4)}
+                            {formatPrice(c.inputPerMillion)}
                           </span>
                         </span>
                         <span>
                           <span className="text-on-surface-variant">out</span>{" "}
                           <span className="text-brand-text tabular-nums">
-                            ${c.outputPerMillion.toFixed(4)}
+                            {formatPrice(c.outputPerMillion)}
                           </span>
                         </span>
                       </div>
