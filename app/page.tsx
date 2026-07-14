@@ -5,6 +5,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line,
 } from "recharts";
+import Sidebar from "./components/Sidebar";
 
 // ============ Types ============
 
@@ -519,54 +520,6 @@ export default function Page() {
 }
 
 // ============ Sub-components ============
-
-function Sidebar() {
-  const items = [
-    { icon: "dashboard", label: "Dashboard", active: true },
-    { icon: "workspaces", label: "Workspaces" },
-    { icon: "neurology", label: "Models" },
-    { icon: "support_agent", label: "Agents" },
-  ];
-  const bottomItems = [
-    { icon: "settings", label: "Settings" },
-    { icon: "logout", label: "Logout" },
-  ];
-  return (
-    <nav className="hidden md:flex flex-col h-screen w-64 bg-surface-container-low border-r border-outline-variant py-8 sticky top-0 shrink-0">
-      <div className="px-6 mb-8 flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-brand-primary/20 flex items-center justify-center overflow-hidden shrink-0">
-          <span className="material-symbols-outlined text-brand-primary text-[18px]">analytics</span>
-        </div>
-        <div>
-          <h2 className="text-lg font-semibold text-on-surface">Usage</h2>
-          <p className="text-xs text-brand-text-muted mt-0.5 uppercase tracking-wider">Agent Analytics</p>
-        </div>
-      </div>
-      <ul className="flex flex-col gap-1 px-4 flex-grow">
-        {items.map((item) => (
-          <li key={item.label}>
-            <a className={`flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-colors cursor-pointer ${item.active ? "bg-secondary-container text-on-secondary-container" : "text-on-surface-variant hover:bg-surface-container-high"}`}>
-              <span className="material-symbols-outlined text-[18px]">{item.icon}</span>
-              {item.label}
-            </a>
-          </li>
-        ))}
-      </ul>
-      <div className="mt-auto px-4">
-        <ul className="flex flex-col gap-1">
-          {bottomItems.map((item) => (
-            <li key={item.label}>
-              <a className="flex items-center gap-3 px-3 py-2 text-on-surface-variant rounded-lg text-xs font-semibold uppercase tracking-wider hover:bg-surface-container-high transition-colors cursor-pointer">
-                <span className="material-symbols-outlined text-[18px]">{item.icon}</span>
-                {item.label}
-              </a>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </nav>
-  );
-}
 
 function Kpi({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
