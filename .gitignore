@@ -5,3 +5,5 @@ out
 *.log
 data/*.json
 !data/.gitkeep
+tsconfig.tsbuildinfo
+*.git-credentials

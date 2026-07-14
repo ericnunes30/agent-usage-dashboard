@@ -68,8 +68,9 @@ export async function GET() {
 
     return NextResponse.json(data, {
       headers: {
-        // cache 5min — gera uma vez, lê várias
-        "Cache-Control": "public, max-age=300",
+        // sem cache — custom-pricing.json pode mudar a qualquer momento
+        // e queremos que o dashboard sempre veja a versão mais recente
+        "Cache-Control": "no-store",
       },
     });
   } catch (err: any) {

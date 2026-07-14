@@ -92,7 +92,7 @@ export default function Page() {
       const result = await r.json();
       if (result.ok) {
         // Recarrega os dados
-        const r2 = await fetch("/api/sessions");
+        const r2 = await fetch("/api/sessions", { cache: "no-store" });
         const fresh = await r2.json();
         setData(fresh);
         setLastRefresh(Date.now());
@@ -142,7 +142,7 @@ export default function Page() {
   const [daysBack, setDaysBack] = useState<number>(0); // 0 = tudo
 
   useEffect(() => {
-    fetch("/api/sessions")
+    fetch("/api/sessions", { cache: "no-store" })
       .then((r) => r.json())
       .then((d) => { setData(d); setLoading(false); })
       .catch(() => setLoading(false));
@@ -470,7 +470,7 @@ export default function Page() {
           onSaved={() => {
             setShowPricingModal(false);
             // Recarrega sessions pra aplicar o novo override
-            fetch("/api/sessions")
+            fetch("/api/sessions", { cache: "no-store" })
               .then((r) => r.json())
               .then((d) => { setData(d); fetchUnmatched(); });
           }}
